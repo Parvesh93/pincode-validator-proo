@@ -1,0 +1,19 @@
+<div
+  id="pincode-validator-widget"
+  data-endpoint="/apps/pincode-validator/validate"
+>
+  <input type="text" id="pincode-input" placeholder="Enter your pincode">
+  <button id="check-pincode-btn" type="button">Check</button>
+  <div id="pincode-result"></div>
+</div>
+
+{{ 'pincode-validator.js' | asset_url | script_tag }}
+{{ 'pincode-validator.css' | asset_url | stylesheet_tag }}
+
+{% schema %}
+{
+  "name": "Pincode Validator",
+  "target": "section",
+  "settings": []
+}
+{% endschema %}
