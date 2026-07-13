@@ -1,5 +1,12 @@
+
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { Outlet, useLoaderData, useRouteError } from "react-router";
+import {
+  Link,
+  Outlet,
+  useLoaderData,
+  useRouteError,
+} from "react-router";
+
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 
@@ -8,8 +15,9 @@ import { authenticate } from "../shopify.server";
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await authenticate.admin(request);
 
-  // eslint-disable-next-line no-undef
-  return { apiKey: process.env.SHOPIFY_API_KEY || "" };
+  return {
+    apiKey: process.env.SHOPIFY_API_KEY || "",
+  };
 };
 
 export default function App() {
@@ -17,18 +25,37 @@ export default function App() {
 
   return (
     <AppProvider embedded apiKey={apiKey}>
-      <div style={{ display: "flex", gap: "1rem" }}>
-        <a href="/app">Dashboard</a>
-        <a href="/app/pincodes">Manage Pincodes</a>
-        <a href="/app/import">Import CSV</a>
-        <a href="/app/settings">Settings</a>
-      </div>
+      <nav
+        style={{
+          display: "flex",
+          gap: "1rem",
+          padding: "1rem 1.5rem",
+          borderBottom: "1px solid #e1e3e5",
+          background: "#ffffff",
+        }}
+      >
+        <Link to="/app">
+          Dashboard
+        </Link>
+
+        <Link to="/app/pincodes">
+          Manage Pincodes
+        </Link>
+
+        <Link to="/app/import">
+          Import CSV
+        </Link>
+
+        <Link to="/app/settings">
+          Settings
+        </Link>
+      </nav>
+
       <Outlet />
     </AppProvider>
   );
 }
 
-// Shopify needs React Router to catch some thrown responses, so that their headers are included in the response.
 export function ErrorBoundary() {
   return boundary.error(useRouteError());
 }
@@ -36,3 +63,4 @@ export function ErrorBoundary() {
 export const headers: HeadersFunction = (headersArgs) => {
   return boundary.headers(headersArgs);
 };
+
