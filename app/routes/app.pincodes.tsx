@@ -6,9 +6,10 @@ import {
   useLoaderData,
   useNavigation,
   useSearchParams,
+  data,
+  type ActionFunctionArgs,
+  type LoaderFunctionArgs,
 } from "react-router";
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { data } from "react-router";
 import { authenticate } from "../shopify.server";
 import {
   bulkDeletePincodes,
@@ -22,6 +23,18 @@ import {
 type ActionData = {
   error?: string;
   success?: string;
+};
+
+type Pincode = {
+  id: string;
+  pincode: string;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  prepaidAvailable?: boolean | null;
+  codAvailable?: boolean | null;
+  estDeliveryDays?: number | null;
+  isActive?: boolean | null;
 };
 
 function toBool(value: FormDataEntryValue | null) {
@@ -61,7 +74,7 @@ export async function action({ request }: ActionFunctionArgs) {
       const country = String(formData.get("country") || "").trim() || null;
       const estDeliveryDaysRaw = String(formData.get("estDeliveryDays") || "").trim();
 
-      if (!/^[0-9]{6}$/.test(pincode)) {
+      if (!validatePincode(pincode)) {
         return data({ error: "Pincode must be exactly 6 digits." }, { status: 400 });
       }
 
@@ -84,10 +97,10 @@ export async function action({ request }: ActionFunctionArgs) {
         city,
         state,
         country,
-        codAvailable: formData.get("codAvailable") === "on",
-        prepaidAvailable: formData.get("prepaidAvailable") === "on",
+        codAvailable: toBool(formData.get("codAvailable")),
+        prepaidAvailable: toBool(formData.get("prepaidAvailable")),
         estDeliveryDays,
-        isActive: formData.get("isActive") === "on",
+        isActive: toBool(formData.get("isActive")),
         source: "manual",
       });
 
@@ -106,7 +119,7 @@ export async function action({ request }: ActionFunctionArgs) {
         return data({ error: "Missing record ID." }, { status: 400 });
       }
 
-      if (!/^[0-9]{6}$/.test(pincode)) {
+      if (!validatePincode(pincode)) {
         return data({ error: "Pincode must be exactly 6 digits." }, { status: 400 });
       }
 
@@ -128,10 +141,10 @@ export async function action({ request }: ActionFunctionArgs) {
         city,
         state,
         country,
-        codAvailable: formData.get("codAvailable") === "on",
-        prepaidAvailable: formData.get("prepaidAvailable") === "on",
+        codAvailable: toBool(formData.get("codAvailable")),
+        prepaidAvailable: toBool(formData.get("prepaidAvailable")),
         estDeliveryDays,
-        isActive: formData.get("isActive") === "on",
+        isActive: toBool(formData.get("isActive")),
         source: "manual",
       });
 
@@ -164,16 +177,23 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     return data({ error: "Invalid action." }, { status: 400 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return data(
-      { error: error?.message || "Something went wrong." },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Something went wrong.",
+      },
       { status: 500 },
     );
   }
 }
 
 export default function PincodesPage() {
-  const { pincodes, search } = useLoaderData<typeof loader>();
+  const loaderData = useLoaderData<typeof loader>();
+  const pincodes = (loaderData.pincodes || []) as Pincode[];
+  const search = (loaderData.search || "") as string;
   const actionData = useActionData() as ActionData | undefined;
   const navigation = useNavigation();
   const [searchParams] = useSearchParams();
@@ -181,9 +201,7 @@ export default function PincodesPage() {
   const isSubmitting = navigation.state === "submitting";
   const editId = searchParams.get("edit");
 
-  const editingRow = editId
-    ? pincodes.find((item: any) => item.id === editId)
-    : null;
+  const editingRow = editId ? pincodes.find((item) => item.id === editId) ?? null : null;
 
   return (
     <div style={{ padding: "24px" }}>
@@ -227,8 +245,9 @@ export default function PincodesPage() {
             }}
           >
             <div>
-              <label>Pincode</label>
+              <label htmlFor="pincode">Pincode</label>
               <input
+                id="pincode"
                 name="pincode"
                 type="text"
                 defaultValue={editingRow?.pincode || ""}
@@ -240,8 +259,9 @@ export default function PincodesPage() {
             </div>
 
             <div>
-              <label>ETA days</label>
+              <label htmlFor="estDeliveryDays">ETA days</label>
               <input
+                id="estDeliveryDays"
                 name="estDeliveryDays"
                 type="number"
                 min="0"
@@ -252,8 +272,9 @@ export default function PincodesPage() {
             </div>
 
             <div>
-              <label>City</label>
+              <label htmlFor="city">City</label>
               <input
+                id="city"
                 name="city"
                 type="text"
                 defaultValue={editingRow?.city || ""}
@@ -263,8 +284,9 @@ export default function PincodesPage() {
             </div>
 
             <div>
-              <label>State</label>
+              <label htmlFor="state">State</label>
               <input
+                id="state"
                 name="state"
                 type="text"
                 defaultValue={editingRow?.state || ""}
@@ -274,8 +296,9 @@ export default function PincodesPage() {
             </div>
 
             <div>
-              <label>Country</label>
+              <label htmlFor="country">Country</label>
               <input
+                id="country"
                 name="country"
                 type="text"
                 defaultValue={editingRow?.country || "India"}
@@ -398,7 +421,7 @@ export default function PincodesPage() {
                     </td>
                   </tr>
                 ) : (
-                  pincodes.map((item: any) => (
+                  pincodes.map((item) => (
                     <tr key={item.id} style={{ borderTop: "1px solid #eee" }}>
                       <td style={tdStyle}>
                         <input type="checkbox" name="selectedIds" value={item.id} />

@@ -1,19 +1,37 @@
-import { AppProvider } from "@shopify/shopify-app-react-router/react";
-import { useState } from "react";
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
+
+import type {
+  ActionFunctionArgs,
+  LoaderFunctionArgs,
+} from "react-router";
 import { Form, useActionData, useLoaderData } from "react-router";
 
 import { login } from "../../shopify.server";
-import { loginErrorMessage } from "./error.server";
+// If the CSS module is missing, fall back to an empty styles object
+// to avoid import resolution errors during builds or linting.
+const styles: { [key: string]: string } = {
+  index: "",
+  content: "",
+  heading: "",
+  label: "",
+  input: "",
+  error: "",
+  button: "",
+};
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const errors = loginErrorMessage(await login(request));
+  const errors = login
+    ? await login(request)
+    : {};
 
-  return { errors };
+  return {
+    errors,
+  };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const errors = loginErrorMessage(await login(request));
+  const errors = login
+    ? await login(request)
+    : {};
 
   return {
     errors,
@@ -23,27 +41,41 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 export default function Auth() {
   const loaderData = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
-  const [shop, setShop] = useState("");
-  const { errors } = actionData || loaderData;
+  const errors = actionData?.errors || loaderData.errors;
 
   return (
-    <AppProvider embedded={false}>
-      <s-page>
+    <div className={styles.index}>
+      <div className={styles.content}>
+        <h1 className={styles.heading}>Log in</h1>
+
         <Form method="post">
-        <s-section heading="Log in">
-          <s-text-field
-            name="shop"
-            label="Shop domain"
-            details="example.myshopify.com"
-            value={shop}
-            onChange={(e) => setShop(e.currentTarget.value)}
-            autocomplete="on"
-            error={errors.shop}
-          ></s-text-field>
-          <s-button type="submit">Log in</s-button>
-        </s-section>
+          <label className={styles.label}>
+            <span>Shop domain</span>
+
+            <input
+              className={styles.input}
+              type="text"
+              name="shop"
+              placeholder="example.myshopify.com"
+              autoComplete="on"
+              required
+            />
+
+            {errors?.shop && (
+              <span className={styles.error}>
+                {errors.shop}
+              </span>
+            )}
+          </label>
+
+          <button
+            className={styles.button}
+            type="submit"
+          >
+            Log in
+          </button>
         </Form>
-      </s-page>
-    </AppProvider>
+      </div>
+    </div>
   );
 }

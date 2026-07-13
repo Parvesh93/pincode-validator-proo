@@ -2,7 +2,7 @@
 
 client_id = "28e74bd37976895dd299f3df087bfe1d"
 name = "pincode-validator-proo"
-application_url = "https://example.com"
+application_url = "https://shopify.ppdesigntech.com"
 embedded = true
 
 [build]
@@ -32,10 +32,10 @@ api_version = "2026-04"
 scopes = "write_products"
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [ "https://shopify.ppdesigntech.com/api/auth" ]
 
 
 [app_proxy]
-url = "https://example.com/apps/pincode-validator"
+url = "https://shopify.ppdesigntech.com/apps/pincode-validator"
 subpath = "pincode-validator"
 prefix = "apps"
