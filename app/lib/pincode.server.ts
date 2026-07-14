@@ -25,7 +25,9 @@ function normalizePincode(value: string) {
   return value.trim();
 }
 
-export async function getOrCreateShopByDomain(shopDomain: string) {
+export async function getOrCreateShopByDomain(
+  shopDomain: string,
+) {
   return prisma.shop.upsert({
     where: { shopDomain },
     update: {},
@@ -33,7 +35,9 @@ export async function getOrCreateShopByDomain(shopDomain: string) {
   });
 }
 
-export async function getShopByDomain(shopDomain: string) {
+export async function getShopByDomain(
+  shopDomain: string,
+) {
   return prisma.shop.findUnique({
     where: { shopDomain },
   });
@@ -167,8 +171,12 @@ export async function getPincodeById(
   });
 }
 
-export async function createPincode(input: PincodeInput) {
-  const pincode = normalizePincode(input.pincode);
+export async function createPincode(
+  input: PincodeInput,
+) {
+  const pincode = normalizePincode(
+    input.pincode,
+  );
 
   return prisma.pincode.create({
     data: {
@@ -177,9 +185,12 @@ export async function createPincode(input: PincodeInput) {
       city: input.city ?? null,
       state: input.state ?? null,
       country: input.country ?? null,
-      codAvailable: input.codAvailable ?? false,
-      prepaidAvailable: input.prepaidAvailable ?? true,
-      estDeliveryDays: input.estDeliveryDays ?? null,
+      codAvailable:
+        input.codAvailable ?? false,
+      prepaidAvailable:
+        input.prepaidAvailable ?? true,
+      estDeliveryDays:
+        input.estDeliveryDays ?? null,
       isActive: input.isActive ?? true,
       source: input.source ?? "manual",
     },
@@ -191,7 +202,10 @@ export async function updatePincode(
   shopId: string,
   input: Omit<PincodeInput, "shopId">,
 ) {
-  const existing = await getPincodeById(id, shopId);
+  const existing = await getPincodeById(
+    id,
+    shopId,
+  );
 
   if (!existing) {
     throw new Error("Pincode not found");
@@ -200,15 +214,23 @@ export async function updatePincode(
   return prisma.pincode.update({
     where: { id },
     data: {
-      pincode: normalizePincode(input.pincode),
+      pincode: normalizePincode(
+        input.pincode,
+      ),
       city: input.city ?? null,
       state: input.state ?? null,
       country: input.country ?? null,
-      codAvailable: input.codAvailable ?? false,
-      prepaidAvailable: input.prepaidAvailable ?? true,
-      estDeliveryDays: input.estDeliveryDays ?? null,
+      codAvailable:
+        input.codAvailable ?? false,
+      prepaidAvailable:
+        input.prepaidAvailable ?? true,
+      estDeliveryDays:
+        input.estDeliveryDays ?? null,
       isActive: input.isActive ?? true,
-      source: input.source ?? existing.source ?? "manual",
+      source:
+        input.source ??
+        existing.source ??
+        "manual",
     },
   });
 }
@@ -216,7 +238,9 @@ export async function updatePincode(
 export async function upsertSinglePincode(
   input: PincodeInput,
 ) {
-  const pincode = normalizePincode(input.pincode);
+  const pincode = normalizePincode(
+    input.pincode,
+  );
 
   return prisma.pincode.upsert({
     where: {
@@ -229,9 +253,12 @@ export async function upsertSinglePincode(
       city: input.city ?? null,
       state: input.state ?? null,
       country: input.country ?? null,
-      codAvailable: input.codAvailable ?? false,
-      prepaidAvailable: input.prepaidAvailable ?? true,
-      estDeliveryDays: input.estDeliveryDays ?? null,
+      codAvailable:
+        input.codAvailable ?? false,
+      prepaidAvailable:
+        input.prepaidAvailable ?? true,
+      estDeliveryDays:
+        input.estDeliveryDays ?? null,
       isActive: input.isActive ?? true,
       source: input.source ?? "manual",
     },
@@ -241,9 +268,12 @@ export async function upsertSinglePincode(
       city: input.city ?? null,
       state: input.state ?? null,
       country: input.country ?? null,
-      codAvailable: input.codAvailable ?? false,
-      prepaidAvailable: input.prepaidAvailable ?? true,
-      estDeliveryDays: input.estDeliveryDays ?? null,
+      codAvailable:
+        input.codAvailable ?? false,
+      prepaidAvailable:
+        input.prepaidAvailable ?? true,
+      estDeliveryDays:
+        input.estDeliveryDays ?? null,
       isActive: input.isActive ?? true,
       source: input.source ?? "manual",
     },
@@ -254,7 +284,10 @@ export async function deletePincode(
   id: string,
   shopId: string,
 ) {
-  const existing = await getPincodeById(id, shopId);
+  const existing = await getPincodeById(
+    id,
+    shopId,
+  );
 
   if (!existing) {
     throw new Error("Pincode not found");
@@ -283,12 +316,36 @@ export async function bulkDeletePincodes(
   });
 }
 
+export async function bulkUpdatePincodeStatus(
+  ids: string[],
+  shopId: string,
+  isActive: boolean,
+) {
+  if (!ids.length) {
+    return { count: 0 };
+  }
+
+  return prisma.pincode.updateMany({
+    where: {
+      shopId,
+      id: {
+        in: ids,
+      },
+    },
+    data: {
+      isActive,
+    },
+  });
+}
+
 export async function bulkUpsertPincodes(
   shopId: string,
   rows: ParsedCsvRow[],
 ) {
   if (!rows.length) {
-    return { insertedOrUpdated: 0 };
+    return {
+      insertedOrUpdated: 0,
+    };
   }
 
   await prisma.$transaction(
@@ -304,8 +361,10 @@ export async function bulkUpsertPincodes(
           city: row.city ?? null,
           state: row.state ?? null,
           country: row.country ?? null,
-          codAvailable: row.codAvailable,
-          prepaidAvailable: row.prepaidAvailable,
+          codAvailable:
+            row.codAvailable,
+          prepaidAvailable:
+            row.prepaidAvailable,
           estDeliveryDays:
             row.estDeliveryDays ?? null,
           isActive: row.isActive,
@@ -317,8 +376,10 @@ export async function bulkUpsertPincodes(
           city: row.city ?? null,
           state: row.state ?? null,
           country: row.country ?? null,
-          codAvailable: row.codAvailable,
-          prepaidAvailable: row.prepaidAvailable,
+          codAvailable:
+            row.codAvailable,
+          prepaidAvailable:
+            row.prepaidAvailable,
           estDeliveryDays:
             row.estDeliveryDays ?? null,
           isActive: row.isActive,

@@ -13,6 +13,7 @@ import {
 import { authenticate } from "../shopify.server";
 import {
   bulkDeletePincodes,
+  bulkUpdatePincodeStatus,
   deletePincode,
   getOrCreateShopByDomain,
   getPaginatedPincodes,
@@ -38,15 +39,26 @@ type Pincode = {
   isActive?: boolean | null;
 };
 
-function toBool(value: FormDataEntryValue | null) {
-  return value === "on" || value === "true";
+function toBool(
+  value: FormDataEntryValue | null,
+) {
+  return (
+    value === "on" ||
+    value === "true"
+  );
 }
 
-function validatePincode(pincode: string) {
-  return /^[1-9][0-9]{5}$/.test(pincode);
+function validatePincode(
+  pincode: string,
+) {
+  return /^[1-9][0-9]{5}$/.test(
+    pincode,
+  );
 }
 
-function parseDeliveryDays(value: string) {
+function parseDeliveryDays(
+  value: string,
+) {
   if (!value) {
     return {
       value: null,
@@ -74,52 +86,82 @@ function parseDeliveryDays(value: string) {
   };
 }
 
+function getSelectedIds(
+  formData: FormData,
+) {
+  return formData
+    .getAll("selectedIds")
+    .map(String)
+    .map((id) => id.trim())
+    .filter(Boolean);
+}
+
 export async function loader({
   request,
 }: LoaderFunctionArgs) {
-  const { session } = await authenticate.admin(request);
+  const { session } =
+    await authenticate.admin(request);
+
   const url = new URL(request.url);
 
   const search =
-    url.searchParams.get("search")?.trim() || "";
+    url.searchParams
+      .get("search")
+      ?.trim() || "";
 
   const editId =
-    url.searchParams.get("edit")?.trim() || "";
+    url.searchParams
+      .get("edit")
+      ?.trim() || "";
 
   const requestedPage = Number(
-    url.searchParams.get("page") || "1",
+    url.searchParams.get("page") ||
+      "1",
   );
 
   const page =
-    Number.isInteger(requestedPage) && requestedPage > 0
+    Number.isInteger(
+      requestedPage,
+    ) && requestedPage > 0
       ? requestedPage
       : 1;
 
-  const shop = await getOrCreateShopByDomain(
-    session.shop,
-  );
+  const shop =
+    await getOrCreateShopByDomain(
+      session.shop,
+    );
 
-  const [paginationResult, editingRow] =
-    await Promise.all([
-      getPaginatedPincodes({
-        shopId: shop.id,
-        search,
-        page,
-        pageSize: 25,
-      }),
-      editId
-        ? getPincodeById(editId, shop.id)
-        : Promise.resolve(null),
-    ]);
+  const [
+    paginationResult,
+    editingRow,
+  ] = await Promise.all([
+    getPaginatedPincodes({
+      shopId: shop.id,
+      search,
+      page,
+      pageSize: 25,
+    }),
+    editId
+      ? getPincodeById(
+          editId,
+          shop.id,
+        )
+      : Promise.resolve(null),
+  ]);
 
   return data({
-    pincodes: paginationResult.pincodes,
+    pincodes:
+      paginationResult.pincodes,
     search,
     pagination: {
-      currentPage: paginationResult.currentPage,
-      totalPages: paginationResult.totalPages,
-      totalCount: paginationResult.totalCount,
-      pageSize: paginationResult.pageSize,
+      currentPage:
+        paginationResult.currentPage,
+      totalPages:
+        paginationResult.totalPages,
+      totalCount:
+        paginationResult.totalCount,
+      pageSize:
+        paginationResult.pageSize,
     },
     editingRow,
   });
@@ -128,42 +170,58 @@ export async function loader({
 export async function action({
   request,
 }: ActionFunctionArgs) {
-  const { session } = await authenticate.admin(request);
-  const formData = await request.formData();
+  const { session } =
+    await authenticate.admin(request);
+
+  const formData =
+    await request.formData();
 
   const intent = String(
     formData.get("intent") || "",
   );
 
-  const shop = await getOrCreateShopByDomain(
-    session.shop,
-  );
+  const shop =
+    await getOrCreateShopByDomain(
+      session.shop,
+    );
 
   try {
     if (intent === "save") {
       const pincode = String(
-        formData.get("pincode") || "",
+        formData.get("pincode") ||
+          "",
       ).trim();
 
       const city =
-        String(formData.get("city") || "").trim() ||
-        null;
+        String(
+          formData.get("city") ||
+            "",
+        ).trim() || null;
 
       const state =
-        String(formData.get("state") || "").trim() ||
-        null;
+        String(
+          formData.get("state") ||
+            "",
+        ).trim() || null;
 
       const country =
-        String(formData.get("country") || "").trim() ||
-        null;
-
-      const deliveryDaysResult = parseDeliveryDays(
         String(
-          formData.get("estDeliveryDays") || "",
-        ).trim(),
-      );
+          formData.get("country") ||
+            "",
+        ).trim() || null;
 
-      if (!validatePincode(pincode)) {
+      const deliveryDaysResult =
+        parseDeliveryDays(
+          String(
+            formData.get(
+              "estDeliveryDays",
+            ) || "",
+          ).trim(),
+        );
+
+      if (
+        !validatePincode(pincode)
+      ) {
         return data(
           {
             error:
@@ -175,10 +233,13 @@ export async function action({
         );
       }
 
-      if (deliveryDaysResult.error) {
+      if (
+        deliveryDaysResult.error
+      ) {
         return data(
           {
-            error: deliveryDaysResult.error,
+            error:
+              deliveryDaysResult.error,
           },
           {
             status: 400,
@@ -193,15 +254,21 @@ export async function action({
         state,
         country,
         codAvailable: toBool(
-          formData.get("codAvailable"),
+          formData.get(
+            "codAvailable",
+          ),
         ),
         prepaidAvailable: toBool(
-          formData.get("prepaidAvailable"),
+          formData.get(
+            "prepaidAvailable",
+          ),
         ),
         estDeliveryDays:
           deliveryDaysResult.value,
         isActive: toBool(
-          formData.get("isActive"),
+          formData.get(
+            "isActive",
+          ),
         ),
         source: "manual",
       });
@@ -214,34 +281,45 @@ export async function action({
     if (intent === "update") {
       const id = String(
         formData.get("id") || "",
-      );
+      ).trim();
 
       const pincode = String(
-        formData.get("pincode") || "",
+        formData.get("pincode") ||
+          "",
       ).trim();
 
       const city =
-        String(formData.get("city") || "").trim() ||
-        null;
+        String(
+          formData.get("city") ||
+            "",
+        ).trim() || null;
 
       const state =
-        String(formData.get("state") || "").trim() ||
-        null;
+        String(
+          formData.get("state") ||
+            "",
+        ).trim() || null;
 
       const country =
-        String(formData.get("country") || "").trim() ||
-        null;
-
-      const deliveryDaysResult = parseDeliveryDays(
         String(
-          formData.get("estDeliveryDays") || "",
-        ).trim(),
-      );
+          formData.get("country") ||
+            "",
+        ).trim() || null;
+
+      const deliveryDaysResult =
+        parseDeliveryDays(
+          String(
+            formData.get(
+              "estDeliveryDays",
+            ) || "",
+          ).trim(),
+        );
 
       if (!id) {
         return data(
           {
-            error: "Missing record ID.",
+            error:
+              "Missing record ID.",
           },
           {
             status: 400,
@@ -249,7 +327,9 @@ export async function action({
         );
       }
 
-      if (!validatePincode(pincode)) {
+      if (
+        !validatePincode(pincode)
+      ) {
         return data(
           {
             error:
@@ -261,10 +341,13 @@ export async function action({
         );
       }
 
-      if (deliveryDaysResult.error) {
+      if (
+        deliveryDaysResult.error
+      ) {
         return data(
           {
-            error: deliveryDaysResult.error,
+            error:
+              deliveryDaysResult.error,
           },
           {
             status: 400,
@@ -281,15 +364,21 @@ export async function action({
           state,
           country,
           codAvailable: toBool(
-            formData.get("codAvailable"),
+            formData.get(
+              "codAvailable",
+            ),
           ),
           prepaidAvailable: toBool(
-            formData.get("prepaidAvailable"),
+            formData.get(
+              "prepaidAvailable",
+            ),
           ),
           estDeliveryDays:
             deliveryDaysResult.value,
           isActive: toBool(
-            formData.get("isActive"),
+            formData.get(
+              "isActive",
+            ),
           ),
           source: "manual",
         },
@@ -300,7 +389,11 @@ export async function action({
       });
     }
 
-    if (intent.startsWith("delete:")) {
+    if (
+      intent.startsWith(
+        "delete:",
+      )
+    ) {
       const id = intent
         .replace("delete:", "")
         .trim();
@@ -308,7 +401,8 @@ export async function action({
       if (!id) {
         return data(
           {
-            error: "Missing record ID.",
+            error:
+              "Missing record ID.",
           },
           {
             status: 400,
@@ -316,7 +410,10 @@ export async function action({
         );
       }
 
-      await deletePincode(id, shop.id);
+      await deletePincode(
+        id,
+        shop.id,
+      );
 
       return data({
         success:
@@ -324,17 +421,78 @@ export async function action({
       });
     }
 
-    if (intent === "bulk-delete") {
-      const ids = formData
-        .getAll("selectedIds")
-        .map(String)
-        .filter(Boolean);
+    if (
+      intent === "bulk-activate"
+    ) {
+      const ids =
+        getSelectedIds(formData);
 
       if (!ids.length) {
         return data(
           {
             error:
-              "Please select at least one pincode.",
+              "Please select at least one pincode to activate.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      const result =
+        await bulkUpdatePincodeStatus(
+          ids,
+          shop.id,
+          true,
+        );
+
+      return data({
+        success: `${result.count} pincode(s) activated successfully.`,
+      });
+    }
+
+    if (
+      intent ===
+      "bulk-deactivate"
+    ) {
+      const ids =
+        getSelectedIds(formData);
+
+      if (!ids.length) {
+        return data(
+          {
+            error:
+              "Please select at least one pincode to deactivate.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      const result =
+        await bulkUpdatePincodeStatus(
+          ids,
+          shop.id,
+          false,
+        );
+
+      return data({
+        success: `${result.count} pincode(s) deactivated successfully.`,
+      });
+    }
+
+    if (
+      intent === "bulk-delete"
+    ) {
+      const ids =
+        getSelectedIds(formData);
+
+      if (!ids.length) {
+        return data(
+          {
+            error:
+              "Please select at least one pincode to delete.",
           },
           {
             status: 400,
@@ -418,7 +576,9 @@ function StatusBadge({
         }}
       />
 
-      {enabled ? enabledText : disabledText}
+      {enabled
+        ? enabledText
+        : disabledText}
     </span>
   );
 }
@@ -431,7 +591,8 @@ export default function PincodesPage() {
     loaderData.pincodes || []
   ) as Pincode[];
 
-  const search = loaderData.search || "";
+  const search =
+    loaderData.search || "";
 
   const pagination =
     loaderData.pagination;
@@ -456,26 +617,37 @@ export default function PincodesPage() {
       | ActionData
       | undefined;
 
-  const navigation = useNavigation();
+  const navigation =
+    useNavigation();
 
   const isSubmitting =
-    navigation.state === "submitting";
+    navigation.state ===
+    "submitting";
 
   const firstVisibleRecord =
     totalCount === 0
       ? 0
-      : (currentPage - 1) * pageSize + 1;
+      : (currentPage - 1) *
+          pageSize +
+        1;
 
-  const lastVisibleRecord = Math.min(
-    currentPage * pageSize,
-    totalCount,
-  );
+  const lastVisibleRecord =
+    Math.min(
+      currentPage * pageSize,
+      totalCount,
+    );
 
-  function getPageUrl(pageNumber: number) {
-    const params = new URLSearchParams();
+  function getPageUrl(
+    pageNumber: number,
+  ) {
+    const params =
+      new URLSearchParams();
 
     if (search) {
-      params.set("search", search);
+      params.set(
+        "search",
+        search,
+      );
     }
 
     params.set(
@@ -486,11 +658,17 @@ export default function PincodesPage() {
     return `/app/pincodes?${params.toString()}`;
   }
 
-  function getEditUrl(id: string) {
-    const params = new URLSearchParams();
+  function getEditUrl(
+    id: string,
+  ) {
+    const params =
+      new URLSearchParams();
 
     if (search) {
-      params.set("search", search);
+      params.set(
+        "search",
+        search,
+      );
     }
 
     params.set(
@@ -513,9 +691,10 @@ export default function PincodesPage() {
             </h2>
 
             <p className="pincode-section-description">
-              Add, edit and manage the postal
-              codes where your store can
-              deliver orders.
+              Add, edit and manage
+              the postal codes where
+              your store can deliver
+              orders.
             </p>
           </div>
 
@@ -555,8 +734,9 @@ export default function PincodesPage() {
               </h2>
 
               <p className="pincode-card-description">
-                Configure delivery availability,
-                payment methods and estimated
+                Configure delivery
+                availability, payment
+                methods and estimated
                 delivery time.
               </p>
             </div>
@@ -584,7 +764,9 @@ export default function PincodesPage() {
                 <input
                   type="hidden"
                   name="id"
-                  value={editingRow.id}
+                  value={
+                    editingRow.id
+                  }
                 />
               ) : null}
 
@@ -604,7 +786,8 @@ export default function PincodesPage() {
                     inputMode="numeric"
                     autoComplete="postal-code"
                     defaultValue={
-                      editingRow?.pincode || ""
+                      editingRow?.pincode ||
+                      ""
                     }
                     placeholder="110001"
                     maxLength={6}
@@ -614,8 +797,9 @@ export default function PincodesPage() {
                   />
 
                   <p style={fieldHelp}>
-                    Enter a valid six-digit
-                    Indian postal code.
+                    Enter a valid
+                    six-digit Indian
+                    postal code.
                   </p>
                 </div>
 
@@ -624,12 +808,14 @@ export default function PincodesPage() {
                     htmlFor="estDeliveryDays"
                     style={fieldLabel}
                   >
-                    Estimated delivery time
+                    Estimated delivery
+                    time
                   </label>
 
                   <div
                     style={{
-                      position: "relative",
+                      position:
+                        "relative",
                     }}
                   >
                     <input
@@ -641,12 +827,14 @@ export default function PincodesPage() {
                       step="1"
                       defaultValue={
                         editingRow
-                          ?.estDeliveryDays ?? ""
+                          ?.estDeliveryDays ??
+                        ""
                       }
                       placeholder="3"
                       style={{
                         ...premiumInput,
-                        paddingRight: "65px",
+                        paddingRight:
+                          "65px",
                       }}
                     />
 
@@ -669,7 +857,8 @@ export default function PincodesPage() {
                     name="city"
                     type="text"
                     defaultValue={
-                      editingRow?.city || ""
+                      editingRow?.city ||
+                      ""
                     }
                     placeholder="Delhi"
                     style={premiumInput}
@@ -689,7 +878,8 @@ export default function PincodesPage() {
                     name="state"
                     type="text"
                     defaultValue={
-                      editingRow?.state || ""
+                      editingRow?.state ||
+                      ""
                     }
                     placeholder="Delhi"
                     style={premiumInput}
@@ -709,7 +899,8 @@ export default function PincodesPage() {
                     name="country"
                     type="text"
                     defaultValue={
-                      editingRow?.country ||
+                      editingRow
+                        ?.country ||
                       "India"
                     }
                     placeholder="India"
@@ -724,7 +915,9 @@ export default function PincodesPage() {
                 </h3>
 
                 <div className="availability-grid">
-                  <label style={optionCard}>
+                  <label
+                    style={optionCard}
+                  >
                     <input
                       type="checkbox"
                       name="prepaidAvailable"
@@ -737,9 +930,12 @@ export default function PincodesPage() {
 
                     <span>
                       <strong
-                        style={optionTitle}
+                        style={
+                          optionTitle
+                        }
                       >
-                        Delivery available
+                        Delivery
+                        available
                       </strong>
 
                       <span
@@ -747,13 +943,16 @@ export default function PincodesPage() {
                           optionDescription
                         }
                       >
-                        Allow prepaid delivery
-                        to this pincode.
+                        Allow prepaid
+                        delivery to this
+                        pincode.
                       </span>
                     </span>
                   </label>
 
-                  <label style={optionCard}>
+                  <label
+                    style={optionCard}
+                  >
                     <input
                       type="checkbox"
                       name="codAvailable"
@@ -766,7 +965,9 @@ export default function PincodesPage() {
 
                     <span>
                       <strong
-                        style={optionTitle}
+                        style={
+                          optionTitle
+                        }
                       >
                         COD available
                       </strong>
@@ -776,13 +977,15 @@ export default function PincodesPage() {
                           optionDescription
                         }
                       >
-                        Allow cash on delivery
-                        orders.
+                        Allow cash on
+                        delivery orders.
                       </span>
                     </span>
                   </label>
 
-                  <label style={optionCard}>
+                  <label
+                    style={optionCard}
+                  >
                     <input
                       type="checkbox"
                       name="isActive"
@@ -795,7 +998,9 @@ export default function PincodesPage() {
 
                     <span>
                       <strong
-                        style={optionTitle}
+                        style={
+                          optionTitle
+                        }
                       >
                         Active
                       </strong>
@@ -805,8 +1010,10 @@ export default function PincodesPage() {
                           optionDescription
                         }
                       >
-                        Include this record in
-                        storefront validation.
+                        Include this
+                        record in
+                        storefront
+                        validation.
                       </span>
                     </span>
                   </label>
@@ -816,15 +1023,19 @@ export default function PincodesPage() {
               <div className="form-actions">
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={
+                    isSubmitting
+                  }
                   style={{
                     ...primaryButton,
-                    opacity: isSubmitting
-                      ? 0.65
-                      : 1,
-                    cursor: isSubmitting
-                      ? "not-allowed"
-                      : "pointer",
+                    opacity:
+                      isSubmitting
+                        ? 0.65
+                        : 1,
+                    cursor:
+                      isSubmitting
+                        ? "not-allowed"
+                        : "pointer",
                   }}
                 >
                   {isSubmitting
@@ -839,7 +1050,9 @@ export default function PincodesPage() {
                     to={getPageUrl(
                       currentPage,
                     )}
-                    style={secondaryButton}
+                    style={
+                      secondaryButton
+                    }
                   >
                     Cancel editing
                   </Link>
@@ -857,8 +1070,10 @@ export default function PincodesPage() {
               </h2>
 
               <p className="pincode-card-description">
-                Search, edit and manage your
-                current serviceability records.
+                Search, edit and
+                manage your current
+                serviceability
+                records.
               </p>
             </div>
 
@@ -883,7 +1098,9 @@ export default function PincodesPage() {
 
               <button
                 type="submit"
-                style={secondaryButton}
+                style={
+                  secondaryButton
+                }
               >
                 Search
               </button>
@@ -891,7 +1108,9 @@ export default function PincodesPage() {
               {search ? (
                 <Link
                   to="/app/pincodes"
-                  style={secondaryButton}
+                  style={
+                    secondaryButton
+                  }
                 >
                   Clear
                 </Link>
@@ -949,7 +1168,8 @@ export default function PincodesPage() {
                 </thead>
 
                 <tbody>
-                  {pincodes.length === 0 ? (
+                  {pincodes.length ===
+                  0 ? (
                     <tr>
                       <td
                         colSpan={8}
@@ -979,7 +1199,8 @@ export default function PincodesPage() {
                                 secondaryButton
                               }
                             >
-                              Clear search
+                              Clear
+                              search
                             </Link>
                           ) : (
                             <Link
@@ -995,138 +1216,176 @@ export default function PincodesPage() {
                       </td>
                     </tr>
                   ) : (
-                    pincodes.map((item) => (
-                      <tr key={item.id}>
-                        <td
-                          style={
-                            checkboxCellStyle
+                    pincodes.map(
+                      (item) => (
+                        <tr
+                          key={
+                            item.id
                           }
                         >
-                          <input
-                            type="checkbox"
-                            name="selectedIds"
-                            value={item.id}
-                            aria-label={`Select pincode ${item.pincode}`}
-                          />
-                        </td>
-
-                        <td style={tdStyle}>
-                          <strong className="pincode-number">
-                            {item.pincode}
-                          </strong>
-                        </td>
-
-                        <td style={tdStyle}>
-                          <div className="location-primary">
-                            {item.city ||
-                              "No city"}
-                          </div>
-
-                          <div className="location-secondary">
-                            {[
-                              item.state,
-                              item.country,
-                            ]
-                              .filter(Boolean)
-                              .join(", ") ||
-                              "Location not set"}
-                          </div>
-                        </td>
-
-                        <td style={tdStyle}>
-                          <StatusBadge
-                            enabled={
-                              !!item.prepaidAvailable
+                          <td
+                            style={
+                              checkboxCellStyle
                             }
-                            enabledText="Available"
-                            disabledText="Unavailable"
-                          />
-                        </td>
+                          >
+                            <input
+                              type="checkbox"
+                              name="selectedIds"
+                              value={
+                                item.id
+                              }
+                              aria-label={`Select pincode ${item.pincode}`}
+                            />
+                          </td>
 
-                        <td style={tdStyle}>
-                          <StatusBadge
-                            enabled={
-                              !!item.codAvailable
+                          <td
+                            style={
+                              tdStyle
                             }
-                            enabledText="Available"
-                            disabledText="Unavailable"
-                          />
-                        </td>
-
-                        <td style={tdStyle}>
-                          {item.estDeliveryDays !=
-                          null ? (
-                            <span className="eta-text">
+                          >
+                            <strong className="pincode-number">
                               {
-                                item.estDeliveryDays
-                              }{" "}
-                              {item.estDeliveryDays ===
-                              1
-                                ? "day"
-                                : "days"}
-                            </span>
-                          ) : (
-                            <span className="muted-text">
-                              Not set
-                            </span>
-                          )}
-                        </td>
+                                item.pincode
+                              }
+                            </strong>
+                          </td>
 
-                        <td style={tdStyle}>
-                          <StatusBadge
-                            enabled={
-                              !!item.isActive
+                          <td
+                            style={
+                              tdStyle
                             }
-                            enabledText="Active"
-                            disabledText="Inactive"
-                          />
-                        </td>
+                          >
+                            <div className="location-primary">
+                              {item.city ||
+                                "No city"}
+                            </div>
 
-                        <td
-                          style={
-                            actionCellStyle
-                          }
-                        >
-                          <div className="row-actions">
-                            <Link
-                              to={getEditUrl(
-                                item.id,
-                              )}
-                              style={
-                                compactSecondaryButton
+                            <div className="location-secondary">
+                              {[
+                                item.state,
+                                item.country,
+                              ]
+                                .filter(
+                                  Boolean,
+                                )
+                                .join(
+                                  ", ",
+                                ) ||
+                                "Location not set"}
+                            </div>
+                          </td>
+
+                          <td
+                            style={
+                              tdStyle
+                            }
+                          >
+                            <StatusBadge
+                              enabled={
+                                !!item.prepaidAvailable
                               }
-                            >
-                              Edit
-                            </Link>
+                              enabledText="Available"
+                              disabledText="Unavailable"
+                            />
+                          </td>
 
-                            <button
-                              type="submit"
-                              name="intent"
-                              value={`delete:${item.id}`}
-                              style={
-                                compactDangerButton
+                          <td
+                            style={
+                              tdStyle
+                            }
+                          >
+                            <StatusBadge
+                              enabled={
+                                !!item.codAvailable
                               }
-                              onClick={(
-                                event,
-                              ) => {
-                                const confirmed =
-                                  window.confirm(
-                                    `Delete pincode ${item.pincode}?`,
-                                  );
+                              enabledText="Available"
+                              disabledText="Unavailable"
+                            />
+                          </td>
 
-                                if (
-                                  !confirmed
-                                ) {
-                                  event.preventDefault();
+                          <td
+                            style={
+                              tdStyle
+                            }
+                          >
+                            {item.estDeliveryDays !=
+                            null ? (
+                              <span className="eta-text">
+                                {
+                                  item.estDeliveryDays
+                                }{" "}
+                                {item.estDeliveryDays ===
+                                1
+                                  ? "day"
+                                  : "days"}
+                              </span>
+                            ) : (
+                              <span className="muted-text">
+                                Not set
+                              </span>
+                            )}
+                          </td>
+
+                          <td
+                            style={
+                              tdStyle
+                            }
+                          >
+                            <StatusBadge
+                              enabled={
+                                !!item.isActive
+                              }
+                              enabledText="Active"
+                              disabledText="Inactive"
+                            />
+                          </td>
+
+                          <td
+                            style={
+                              actionCellStyle
+                            }
+                          >
+                            <div className="row-actions">
+                              <Link
+                                to={getEditUrl(
+                                  item.id,
+                                )}
+                                style={
+                                  compactSecondaryButton
                                 }
-                              }}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                              >
+                                Edit
+                              </Link>
+
+                              <button
+                                type="submit"
+                                name="intent"
+                                value={`delete:${item.id}`}
+                                style={
+                                  compactDangerButton
+                                }
+                                onClick={(
+                                  event,
+                                ) => {
+                                  const confirmed =
+                                    window.confirm(
+                                      `Delete pincode ${item.pincode}?`,
+                                    );
+
+                                  if (
+                                    !confirmed
+                                  ) {
+                                    event.preventDefault();
+                                  }
+                                }}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ),
+                    )
                   )}
                 </tbody>
               </table>
@@ -1137,8 +1396,13 @@ export default function PincodesPage() {
                 <div className="pagination-summary">
                   Showing{" "}
                   <strong>
-                    {firstVisibleRecord}–
-                    {lastVisibleRecord}
+                    {
+                      firstVisibleRecord
+                    }
+                    –
+                    {
+                      lastVisibleRecord
+                    }
                   </strong>{" "}
                   of{" "}
                   <strong>
@@ -1148,10 +1412,12 @@ export default function PincodesPage() {
                 </div>
 
                 <div className="pagination-controls">
-                  {currentPage > 1 ? (
+                  {currentPage >
+                  1 ? (
                     <Link
                       to={getPageUrl(
-                        currentPage - 1,
+                        currentPage -
+                          1,
                       )}
                       className="pagination-button"
                       aria-label="Go to previous page"
@@ -1168,7 +1434,8 @@ export default function PincodesPage() {
                   )}
 
                   <span className="pagination-current">
-                    Page {currentPage} of{" "}
+                    Page{" "}
+                    {currentPage} of{" "}
                     {totalPages}
                   </span>
 
@@ -1176,7 +1443,8 @@ export default function PincodesPage() {
                   totalPages ? (
                     <Link
                       to={getPageUrl(
-                        currentPage + 1,
+                        currentPage +
+                          1,
                       )}
                       className="pagination-button"
                       aria-label="Go to next page"
@@ -1195,37 +1463,69 @@ export default function PincodesPage() {
               </div>
             ) : null}
 
-            {pincodes.length > 0 ? (
+            {pincodes.length >
+            0 ? (
               <div className="bulk-action-bar">
-                <div>
+                <div className="bulk-action-copy">
                   <strong>
                     Bulk actions
                   </strong>
 
                   <span>
                     Select one or more
-                    records from the table.
+                    records from the
+                    current page.
                   </span>
                 </div>
 
-                <button
-                  type="submit"
-                  name="intent"
-                  value="bulk-delete"
-                  style={dangerButton}
-                  onClick={(event) => {
-                    const confirmed =
-                      window.confirm(
-                        "Delete all selected pincodes?",
-                      );
-
-                    if (!confirmed) {
-                      event.preventDefault();
+                <div className="bulk-action-buttons">
+                  <button
+                    type="submit"
+                    name="intent"
+                    value="bulk-activate"
+                    style={
+                      activateButton
                     }
-                  }}
-                >
-                  Delete selected
-                </button>
+                  >
+                    Activate selected
+                  </button>
+
+                  <button
+                    type="submit"
+                    name="intent"
+                    value="bulk-deactivate"
+                    style={
+                      deactivateButton
+                    }
+                  >
+                    Deactivate selected
+                  </button>
+
+                  <button
+                    type="submit"
+                    name="intent"
+                    value="bulk-delete"
+                    style={
+                      dangerButton
+                    }
+                    onClick={(
+                      event,
+                    ) => {
+                      const confirmed =
+                        window.confirm(
+                          "Delete all selected pincodes?",
+                        );
+
+                      if (
+                        !confirmed
+                      ) {
+                        event.preventDefault();
+                      }
+                    }}
+                  >
+                    Delete selected
+                  </button>
+                </div>
               </div>
             ) : null}
           </Form>
@@ -1498,17 +1798,25 @@ export default function PincodesPage() {
             background: #fafbfb;
           }
 
-          .bulk-action-bar strong {
+          .bulk-action-copy strong {
             display: block;
             color: #303030;
             font-size: 13px;
           }
 
-          .bulk-action-bar span {
+          .bulk-action-copy span {
             display: block;
             margin-top: 3px;
             color: #8c9196;
             font-size: 12px;
+          }
+
+          .bulk-action-buttons {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            flex-wrap: wrap;
           }
 
           .empty-table-cell {
@@ -1620,9 +1928,21 @@ export default function PincodesPage() {
 
             .bulk-action-bar {
               align-items: stretch;
+              padding-left: 18px;
+              padding-right: 18px;
             }
 
-            .bulk-action-bar button {
+            .bulk-action-copy {
+              width: 100%;
+            }
+
+            .bulk-action-buttons {
+              width: 100%;
+              display: grid;
+              grid-template-columns: 1fr;
+            }
+
+            .bulk-action-buttons button {
               width: 100%;
             }
           }
@@ -1793,6 +2113,30 @@ const compactSecondaryButton: CSSProperties = {
   minHeight: "34px",
   padding: "7px 11px",
   fontSize: "12px",
+};
+
+const activateButton: CSSProperties = {
+  minHeight: "40px",
+  padding: "9px 14px",
+  border: "1px solid #008060",
+  borderRadius: "9px",
+  background: "#008060",
+  color: "#ffffff",
+  fontSize: "13px",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const deactivateButton: CSSProperties = {
+  minHeight: "40px",
+  padding: "9px 14px",
+  border: "1px solid #8c9196",
+  borderRadius: "9px",
+  background: "#ffffff",
+  color: "#303030",
+  fontSize: "13px",
+  fontWeight: 700,
+  cursor: "pointer",
 };
 
 const dangerButton: CSSProperties = {
