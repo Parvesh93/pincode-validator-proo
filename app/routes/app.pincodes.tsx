@@ -2,22 +2,23 @@ import type { CSSProperties } from "react";
 import {
   Form,
   Link,
+  data,
   useActionData,
   useLoaderData,
   useNavigation,
   useSearchParams,
-  data,
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
 } from "react-router";
+
 import { authenticate } from "../shopify.server";
 import {
   bulkDeletePincodes,
   deletePincode,
   getOrCreateShopByDomain,
   getPincodesByShop,
-  upsertSinglePincode,
   updatePincode,
+  upsertSinglePincode,
 } from "../lib/pincode.server";
 
 type ActionData = {
@@ -42,7 +43,34 @@ function toBool(value: FormDataEntryValue | null) {
 }
 
 function validatePincode(pincode: string) {
-  return /^[0-9]{6}$/.test(pincode);
+  return /^[1-9][0-9]{5}$/.test(pincode);
+}
+
+function parseDeliveryDays(value: string) {
+  if (!value) {
+    return {
+      value: null,
+      error: null,
+    };
+  }
+
+  const parsed = Number(value);
+
+  if (
+    !Number.isInteger(parsed) ||
+    parsed < 0 ||
+    parsed > 365
+  ) {
+    return {
+      value: null,
+      error: "ETA days must be a whole number between 0 and 365.",
+    };
+  }
+
+  return {
+    value: parsed,
+    error: null,
+  };
 }
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -68,26 +96,43 @@ export async function action({ request }: ActionFunctionArgs) {
 
   try {
     if (intent === "save") {
-      const pincode = String(formData.get("pincode") || "").trim();
-      const city = String(formData.get("city") || "").trim() || null;
-      const state = String(formData.get("state") || "").trim() || null;
-      const country = String(formData.get("country") || "").trim() || null;
-      const estDeliveryDaysRaw = String(formData.get("estDeliveryDays") || "").trim();
+      const pincode = String(
+        formData.get("pincode") || "",
+      ).trim();
+
+      const city =
+        String(formData.get("city") || "").trim() || null;
+
+      const state =
+        String(formData.get("state") || "").trim() || null;
+
+      const country =
+        String(formData.get("country") || "").trim() || null;
+
+      const deliveryDaysResult = parseDeliveryDays(
+        String(formData.get("estDeliveryDays") || "").trim(),
+      );
 
       if (!validatePincode(pincode)) {
-        return data({ error: "Pincode must be exactly 6 digits." }, { status: 400 });
+        return data(
+          {
+            error:
+              "Pincode must contain exactly six digits and cannot start with 0.",
+          },
+          {
+            status: 400,
+          },
+        );
       }
 
-      const estDeliveryDays =
-        estDeliveryDaysRaw === "" ? null : Number(estDeliveryDaysRaw);
-
-      if (
-        estDeliveryDaysRaw !== "" &&
-        (Number.isNaN(estDeliveryDays) || (estDeliveryDays !== null && estDeliveryDays < 0))
-      ) {
+      if (deliveryDaysResult.error) {
         return data(
-          { error: "ETA days must be a valid non-negative number." },
-          { status: 400 },
+          {
+            error: deliveryDaysResult.error,
+          },
+          {
+            status: 400,
+          },
         );
       }
 
@@ -97,42 +142,73 @@ export async function action({ request }: ActionFunctionArgs) {
         city,
         state,
         country,
-        codAvailable: toBool(formData.get("codAvailable")),
-        prepaidAvailable: toBool(formData.get("prepaidAvailable")),
-        estDeliveryDays,
+        codAvailable: toBool(
+          formData.get("codAvailable"),
+        ),
+        prepaidAvailable: toBool(
+          formData.get("prepaidAvailable"),
+        ),
+        estDeliveryDays: deliveryDaysResult.value,
         isActive: toBool(formData.get("isActive")),
         source: "manual",
       });
 
-      return data({ success: `Pincode ${pincode} saved successfully.` });
+      return data({
+        success: `Pincode ${pincode} saved successfully.`,
+      });
     }
 
     if (intent === "update") {
       const id = String(formData.get("id") || "");
-      const pincode = String(formData.get("pincode") || "").trim();
-      const city = String(formData.get("city") || "").trim() || null;
-      const state = String(formData.get("state") || "").trim() || null;
-      const country = String(formData.get("country") || "").trim() || null;
-      const estDeliveryDaysRaw = String(formData.get("estDeliveryDays") || "").trim();
+
+      const pincode = String(
+        formData.get("pincode") || "",
+      ).trim();
+
+      const city =
+        String(formData.get("city") || "").trim() || null;
+
+      const state =
+        String(formData.get("state") || "").trim() || null;
+
+      const country =
+        String(formData.get("country") || "").trim() || null;
+
+      const deliveryDaysResult = parseDeliveryDays(
+        String(formData.get("estDeliveryDays") || "").trim(),
+      );
 
       if (!id) {
-        return data({ error: "Missing record ID." }, { status: 400 });
+        return data(
+          {
+            error: "Missing record ID.",
+          },
+          {
+            status: 400,
+          },
+        );
       }
 
       if (!validatePincode(pincode)) {
-        return data({ error: "Pincode must be exactly 6 digits." }, { status: 400 });
+        return data(
+          {
+            error:
+              "Pincode must contain exactly six digits and cannot start with 0.",
+          },
+          {
+            status: 400,
+          },
+        );
       }
 
-      const estDeliveryDays =
-        estDeliveryDaysRaw === "" ? null : Number(estDeliveryDaysRaw);
-
-      if (
-        estDeliveryDaysRaw !== "" &&
-        (estDeliveryDays === null || Number.isNaN(estDeliveryDays) || estDeliveryDays < 0)
-      ) {
+      if (deliveryDaysResult.error) {
         return data(
-          { error: "ETA days must be a valid non-negative number." },
-          { status: 400 },
+          {
+            error: deliveryDaysResult.error,
+          },
+          {
+            status: 400,
+          },
         );
       }
 
@@ -141,433 +217,1192 @@ export async function action({ request }: ActionFunctionArgs) {
         city,
         state,
         country,
-        codAvailable: toBool(formData.get("codAvailable")),
-        prepaidAvailable: toBool(formData.get("prepaidAvailable")),
-        estDeliveryDays,
+        codAvailable: toBool(
+          formData.get("codAvailable"),
+        ),
+        prepaidAvailable: toBool(
+          formData.get("prepaidAvailable"),
+        ),
+        estDeliveryDays: deliveryDaysResult.value,
         isActive: toBool(formData.get("isActive")),
         source: "manual",
       });
 
-      return data({ success: `Pincode ${pincode} updated successfully.` });
+      return data({
+        success: `Pincode ${pincode} updated successfully.`,
+      });
     }
 
-    if (intent === "delete") {
-      const id = String(formData.get("id") || "");
+    if (intent.startsWith("delete:")) {
+      const id = intent.replace("delete:", "").trim();
 
       if (!id) {
-        return data({ error: "Missing record ID." }, { status: 400 });
+        return data(
+          {
+            error: "Missing record ID.",
+          },
+          {
+            status: 400,
+          },
+        );
       }
 
       await deletePincode(id, shop.id);
-      return data({ success: "Pincode deleted successfully." });
+
+      return data({
+        success: "Pincode deleted successfully.",
+      });
     }
 
     if (intent === "bulk-delete") {
-      const ids = formData.getAll("selectedIds").map(String).filter(Boolean);
+      const ids = formData
+        .getAll("selectedIds")
+        .map(String)
+        .filter(Boolean);
 
       if (!ids.length) {
-        return data({ error: "Please select at least one pincode." }, { status: 400 });
+        return data(
+          {
+            error: "Please select at least one pincode.",
+          },
+          {
+            status: 400,
+          },
+        );
       }
 
-      const result = await bulkDeletePincodes(ids, shop.id);
+      const result = await bulkDeletePincodes(
+        ids,
+        shop.id,
+      );
 
       return data({
         success: `${result.count} pincode(s) deleted successfully.`,
       });
     }
 
-    return data({ error: "Invalid action." }, { status: 400 });
+    return data(
+      {
+        error: "Invalid action.",
+      },
+      {
+        status: 400,
+      },
+    );
   } catch (error: unknown) {
+    console.error("Pincode management action failed:", error);
+
     return data(
       {
         error:
-          error instanceof Error
-            ? error.message
-            : "Something went wrong.",
+          "The requested operation could not be completed. Please try again.",
       },
-      { status: 500 },
+      {
+        status: 500,
+      },
     );
   }
 }
 
+function StatusBadge({
+  enabled,
+  enabledText,
+  disabledText,
+}: {
+  enabled: boolean;
+  enabledText: string;
+  disabledText: string;
+}) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "6px",
+        padding: "5px 9px",
+        borderRadius: "999px",
+        background: enabled ? "#e8f5ee" : "#f1f2f3",
+        color: enabled ? "#087a44" : "#616161",
+        fontSize: "12px",
+        fontWeight: 700,
+        whiteSpace: "nowrap",
+      }}
+    >
+      <span
+        style={{
+          width: "6px",
+          height: "6px",
+          borderRadius: "50%",
+          background: enabled ? "#008060" : "#8c9196",
+        }}
+      />
+
+      {enabled ? enabledText : disabledText}
+    </span>
+  );
+}
+
 export default function PincodesPage() {
   const loaderData = useLoaderData<typeof loader>();
+
   const pincodes = (loaderData.pincodes || []) as Pincode[];
-  const search = (loaderData.search || "") as string;
-  const actionData = useActionData() as ActionData | undefined;
+  const search = loaderData.search || "";
+
+  const actionData =
+    useActionData<typeof action>() as ActionData | undefined;
+
   const navigation = useNavigation();
   const [searchParams] = useSearchParams();
 
-  const isSubmitting = navigation.state === "submitting";
+  const isSubmitting =
+    navigation.state === "submitting";
+
   const editId = searchParams.get("edit");
 
-  const editingRow = editId ? pincodes.find((item) => item.id === editId) ?? null : null;
+  const editingRow = editId
+    ? pincodes.find((item) => item.id === editId) ?? null
+    : null;
 
   return (
-    <div style={{ padding: "24px" }}>
-      <h1 style={{ fontSize: "28px", fontWeight: 700, marginBottom: "8px" }}>
-        Pincode Management
-      </h1>
-      <p style={{ marginBottom: "24px", color: "#555" }}>
-        Add, edit, search, and delete serviceable pincodes for your store.
-      </p>
+    <s-page heading="Manage pincodes">
+      <div className="pincode-page">
+        <section className="pincode-intro-card">
+          <div>
+            <h2 className="pincode-section-title">
+              Delivery serviceability
+            </h2>
 
-      {actionData?.error ? (
-        <div style={errorBox}>
-          {actionData.error}
-        </div>
-      ) : null}
-
-      {actionData?.success ? (
-        <div style={successBox}>
-          {actionData.success}
-        </div>
-      ) : null}
-
-      <div style={cardStyle}>
-        <h2 style={{ fontSize: "20px", fontWeight: 600, marginBottom: "16px" }}>
-          {editingRow ? "Edit pincode" : "Add pincode"}
-        </h2>
-
-        <Form method="post">
-          <input
-            type="hidden"
-            name="intent"
-            value={editingRow ? "update" : "save"}
-          />
-          {editingRow ? <input type="hidden" name="id" value={editingRow.id} /> : null}
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-              gap: "16px",
-            }}
-          >
-            <div>
-              <label htmlFor="pincode">Pincode</label>
-              <input
-                id="pincode"
-                name="pincode"
-                type="text"
-                defaultValue={editingRow?.pincode || ""}
-                placeholder="110001"
-                maxLength={6}
-                style={inputStyle}
-                required
-              />
-            </div>
-
-            <div>
-              <label htmlFor="estDeliveryDays">ETA days</label>
-              <input
-                id="estDeliveryDays"
-                name="estDeliveryDays"
-                type="number"
-                min="0"
-                defaultValue={editingRow?.estDeliveryDays ?? ""}
-                placeholder="3"
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="city">City</label>
-              <input
-                id="city"
-                name="city"
-                type="text"
-                defaultValue={editingRow?.city || ""}
-                placeholder="Delhi"
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="state">State</label>
-              <input
-                id="state"
-                name="state"
-                type="text"
-                defaultValue={editingRow?.state || ""}
-                placeholder="Delhi"
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="country">Country</label>
-              <input
-                id="country"
-                name="country"
-                type="text"
-                defaultValue={editingRow?.country || "India"}
-                placeholder="India"
-                style={inputStyle}
-              />
-            </div>
+            <p className="pincode-section-description">
+              Add, edit and manage the postal codes where your
+              store can deliver orders.
+            </p>
           </div>
 
-          <div style={{ display: "flex", gap: "20px", marginTop: "16px", flexWrap: "wrap" }}>
-            <label>
-              <input
-                type="checkbox"
-                name="prepaidAvailable"
-                defaultChecked={editingRow ? !!editingRow.prepaidAvailable : true}
-              />{" "}
-              Delivery available
-            </label>
+          <span className="pincode-count-badge">
+            {pincodes.length}{" "}
+            {pincodes.length === 1
+              ? "pincode"
+              : "pincodes"}
+          </span>
+        </section>
 
-            <label>
-              <input
-                type="checkbox"
-                name="codAvailable"
-                defaultChecked={editingRow ? !!editingRow.codAvailable : false}
-              />{" "}
-              COD available
-            </label>
-
-            <label>
-              <input
-                type="checkbox"
-                name="isActive"
-                defaultChecked={editingRow ? !!editingRow.isActive : true}
-              />{" "}
-              Active
-            </label>
+        {actionData?.error ? (
+          <div role="alert" style={errorBox}>
+            {actionData.error}
           </div>
+        ) : null}
 
-          <div style={{ display: "flex", gap: "12px", marginTop: "20px" }}>
-            <button type="submit" disabled={isSubmitting} style={primaryButton}>
-              {isSubmitting
-                ? "Saving..."
-                : editingRow
-                  ? "Update pincode"
-                  : "Save pincode"}
-            </button>
+        {actionData?.success ? (
+          <div role="status" style={successBox}>
+            {actionData.success}
+          </div>
+        ) : null}
+
+        <section className="pincode-card pincode-form-card">
+          <div className="pincode-card-header">
+            <div>
+              <h2 className="pincode-card-title">
+                {editingRow
+                  ? `Edit ${editingRow.pincode}`
+                  : "Add a pincode"}
+              </h2>
+
+              <p className="pincode-card-description">
+                Configure delivery availability, payment
+                methods and estimated delivery time.
+              </p>
+            </div>
 
             {editingRow ? (
-             <Link to="/app/pincodes" style={secondaryButton}>
-  Cancel
-</Link>
+              <span className="editing-badge">
+                Editing record
+              </span>
             ) : null}
           </div>
-        </Form>
-      </div>
 
-      <div style={cardStyle}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "16px",
-            gap: "16px",
-            flexWrap: "wrap",
-          }}
-        >
-          <h2 style={{ fontSize: "20px", fontWeight: 600, margin: 0 }}>
-            Saved pincodes
-          </h2>
+          <Form method="post">
+            <div className="pincode-card-body">
+              <input
+                type="hidden"
+                name="intent"
+                value={editingRow ? "update" : "save"}
+              />
 
-          <Form method="get" style={{ display: "flex", gap: "8px" }}>
-            <input
-              type="text"
-              name="search"
-              defaultValue={search}
-              placeholder="Search pincode"
-              style={{ ...inputStyle, width: "220px", marginBottom: 0 }}
-            />
-            <button type="submit" style={secondaryButton}>
-              Search
-            </button>
-            {search ? (
-              <Link to="/app/pincodes" style={secondaryButton}>
-  Clear
-</Link>
-            ) : null}
+              {editingRow ? (
+                <input
+                  type="hidden"
+                  name="id"
+                  value={editingRow.id}
+                />
+              ) : null}
+
+              <div className="pincode-form-grid">
+                <div>
+                  <label
+                    htmlFor="pincode"
+                    style={fieldLabel}
+                  >
+                    Pincode
+                  </label>
+
+                  <input
+                    id="pincode"
+                    name="pincode"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="postal-code"
+                    defaultValue={
+                      editingRow?.pincode || ""
+                    }
+                    placeholder="110001"
+                    maxLength={6}
+                    pattern="[1-9][0-9]{5}"
+                    style={premiumInput}
+                    required
+                  />
+
+                  <p style={fieldHelp}>
+                    Enter a valid six-digit Indian postal
+                    code.
+                  </p>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="estDeliveryDays"
+                    style={fieldLabel}
+                  >
+                    Estimated delivery time
+                  </label>
+
+                  <div style={{ position: "relative" }}>
+                    <input
+                      id="estDeliveryDays"
+                      name="estDeliveryDays"
+                      type="number"
+                      min="0"
+                      max="365"
+                      step="1"
+                      defaultValue={
+                        editingRow?.estDeliveryDays ?? ""
+                      }
+                      placeholder="3"
+                      style={{
+                        ...premiumInput,
+                        paddingRight: "65px",
+                      }}
+                    />
+
+                    <span className="input-suffix">
+                      days
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="city"
+                    style={fieldLabel}
+                  >
+                    City
+                  </label>
+
+                  <input
+                    id="city"
+                    name="city"
+                    type="text"
+                    defaultValue={
+                      editingRow?.city || ""
+                    }
+                    placeholder="Delhi"
+                    style={premiumInput}
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="state"
+                    style={fieldLabel}
+                  >
+                    State
+                  </label>
+
+                  <input
+                    id="state"
+                    name="state"
+                    type="text"
+                    defaultValue={
+                      editingRow?.state || ""
+                    }
+                    placeholder="Delhi"
+                    style={premiumInput}
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="country"
+                    style={fieldLabel}
+                  >
+                    Country
+                  </label>
+
+                  <input
+                    id="country"
+                    name="country"
+                    type="text"
+                    defaultValue={
+                      editingRow?.country || "India"
+                    }
+                    placeholder="India"
+                    style={premiumInput}
+                  />
+                </div>
+              </div>
+
+              <div className="availability-box">
+                <h3 className="availability-title">
+                  Availability settings
+                </h3>
+
+                <div className="availability-grid">
+                  <label style={optionCard}>
+                    <input
+                      type="checkbox"
+                      name="prepaidAvailable"
+                      defaultChecked={
+                        editingRow
+                          ? !!editingRow.prepaidAvailable
+                          : true
+                      }
+                    />
+
+                    <span>
+                      <strong style={optionTitle}>
+                        Delivery available
+                      </strong>
+
+                      <span style={optionDescription}>
+                        Allow prepaid delivery to this
+                        pincode.
+                      </span>
+                    </span>
+                  </label>
+
+                  <label style={optionCard}>
+                    <input
+                      type="checkbox"
+                      name="codAvailable"
+                      defaultChecked={
+                        editingRow
+                          ? !!editingRow.codAvailable
+                          : false
+                      }
+                    />
+
+                    <span>
+                      <strong style={optionTitle}>
+                        COD available
+                      </strong>
+
+                      <span style={optionDescription}>
+                        Allow cash on delivery orders.
+                      </span>
+                    </span>
+                  </label>
+
+                  <label style={optionCard}>
+                    <input
+                      type="checkbox"
+                      name="isActive"
+                      defaultChecked={
+                        editingRow
+                          ? !!editingRow.isActive
+                          : true
+                      }
+                    />
+
+                    <span>
+                      <strong style={optionTitle}>
+                        Active
+                      </strong>
+
+                      <span style={optionDescription}>
+                        Include this record in storefront
+                        validation.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="form-actions">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  style={{
+                    ...primaryButton,
+                    opacity: isSubmitting ? 0.65 : 1,
+                    cursor: isSubmitting
+                      ? "not-allowed"
+                      : "pointer",
+                  }}
+                >
+                  {isSubmitting
+                    ? "Saving..."
+                    : editingRow
+                      ? "Update pincode"
+                      : "Save pincode"}
+                </button>
+
+                {editingRow ? (
+                  <Link
+                    to="/app/pincodes"
+                    style={secondaryButton}
+                  >
+                    Cancel editing
+                  </Link>
+                ) : null}
+              </div>
+            </div>
           </Form>
-        </div>
+        </section>
 
-        <Form method="post">
-          <input type="hidden" name="intent" value="bulk-delete" />
+        <section className="pincode-card">
+          <div className="saved-header">
+            <div>
+              <h2 className="pincode-card-title">
+                Saved pincodes
+              </h2>
 
-          <div style={{ overflowX: "auto" }}>
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: "14px",
-              }}
-            >
-              <thead>
-                <tr style={{ background: "#f6f6f7" }}>
-                  <th style={thStyle}></th>
-                  <th style={thStyle}>Pincode</th>
-                  <th style={thStyle}>City</th>
-                  <th style={thStyle}>State</th>
-                  <th style={thStyle}>Delivery</th>
-                  <th style={thStyle}>COD</th>
-                  <th style={thStyle}>ETA</th>
-                  <th style={thStyle}>Status</th>
-                  <th style={thStyle}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pincodes.length === 0 ? (
+              <p className="pincode-card-description">
+                Search, edit and manage your current
+                serviceability records.
+              </p>
+            </div>
+
+            <Form method="get" className="search-form">
+              <input
+                type="search"
+                name="search"
+                defaultValue={search}
+                placeholder="Search by pincode, city or state"
+                aria-label="Search saved pincodes"
+                style={searchInput}
+              />
+
+              <button
+                type="submit"
+                style={secondaryButton}
+              >
+                Search
+              </button>
+
+              {search ? (
+                <Link
+                  to="/app/pincodes"
+                  style={secondaryButton}
+                >
+                  Clear
+                </Link>
+              ) : null}
+            </Form>
+          </div>
+
+          <Form method="post">
+            <div className="table-wrapper">
+              <table className="pincode-table">
+                <thead>
                   <tr>
-                    <td colSpan={9} style={{ padding: "16px", textAlign: "center", color: "#666" }}>
-                      No pincodes found.
-                    </td>
-                  </tr>
-                ) : (
-                  pincodes.map((item) => (
-                    <tr key={item.id} style={{ borderTop: "1px solid #eee" }}>
-                      <td style={tdStyle}>
-                        <input type="checkbox" name="selectedIds" value={item.id} />
-                      </td>
-                      <td style={tdStyle}>{item.pincode}</td>
-                      <td style={tdStyle}>{item.city || "-"}</td>
-                      <td style={tdStyle}>{item.state || "-"}</td>
-                      <td style={tdStyle}>
-                        {item.prepaidAvailable ? "Available" : "Unavailable"}
-                      </td>
-                      <td style={tdStyle}>
-                        {item.codAvailable ? "Available" : "Unavailable"}
-                      </td>
-                      <td style={tdStyle}>
-                        {item.estDeliveryDays != null
-                          ? `${item.estDeliveryDays} day(s)`
-                          : "-"}
-                      </td>
-                      <td style={tdStyle}>{item.isActive ? "Active" : "Inactive"}</td>
-                      <td style={tdStyle}>
-                        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                          <Link
-  to={`/app/pincodes?edit=${item.id}`}
-  style={secondaryButton}
->
-  Edit
-</Link>
+                    <th style={checkboxHeaderStyle}>
+                      <span className="visually-hidden">
+                        Select
+                      </span>
+                    </th>
 
-                          <Form method="post">
-                            <input type="hidden" name="intent" value="delete" />
-                            <input type="hidden" name="id" value={item.id} />
+                    <th style={thStyle}>Pincode</th>
+                    <th style={thStyle}>Location</th>
+                    <th style={thStyle}>Delivery</th>
+                    <th style={thStyle}>COD</th>
+                    <th style={thStyle}>ETA</th>
+                    <th style={thStyle}>Status</th>
+                    <th style={actionHeaderStyle}>
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {pincodes.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={8}
+                        className="empty-table-cell"
+                      >
+                        <div className="empty-state">
+                          <div className="empty-state-icon">
+                            #
+                          </div>
+
+                          <h3>
+                            {search
+                              ? "No matching pincodes"
+                              : "No pincodes added yet"}
+                          </h3>
+
+                          <p>
+                            {search
+                              ? "Try changing your search term or clear the search."
+                              : "Add your first pincode using the form above or import a CSV file."}
+                          </p>
+
+                          {search ? (
+                            <Link
+                              to="/app/pincodes"
+                              style={secondaryButton}
+                            >
+                              Clear search
+                            </Link>
+                          ) : (
+                            <Link
+                              to="/app/import"
+                              style={secondaryButton}
+                            >
+                              Import CSV
+                            </Link>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    pincodes.map((item) => (
+                      <tr key={item.id}>
+                        <td style={checkboxCellStyle}>
+                          <input
+                            type="checkbox"
+                            name="selectedIds"
+                            value={item.id}
+                            aria-label={`Select pincode ${item.pincode}`}
+                          />
+                        </td>
+
+                        <td style={tdStyle}>
+                          <strong className="pincode-number">
+                            {item.pincode}
+                          </strong>
+                        </td>
+
+                        <td style={tdStyle}>
+                          <div className="location-primary">
+                            {item.city || "No city"}
+                          </div>
+
+                          <div className="location-secondary">
+                            {[item.state, item.country]
+                              .filter(Boolean)
+                              .join(", ") || "Location not set"}
+                          </div>
+                        </td>
+
+                        <td style={tdStyle}>
+                          <StatusBadge
+                            enabled={
+                              !!item.prepaidAvailable
+                            }
+                            enabledText="Available"
+                            disabledText="Unavailable"
+                          />
+                        </td>
+
+                        <td style={tdStyle}>
+                          <StatusBadge
+                            enabled={!!item.codAvailable}
+                            enabledText="Available"
+                            disabledText="Unavailable"
+                          />
+                        </td>
+
+                        <td style={tdStyle}>
+                          {item.estDeliveryDays != null ? (
+                            <span className="eta-text">
+                              {item.estDeliveryDays}{" "}
+                              {item.estDeliveryDays === 1
+                                ? "day"
+                                : "days"}
+                            </span>
+                          ) : (
+                            <span className="muted-text">
+                              Not set
+                            </span>
+                          )}
+                        </td>
+
+                        <td style={tdStyle}>
+                          <StatusBadge
+                            enabled={!!item.isActive}
+                            enabledText="Active"
+                            disabledText="Inactive"
+                          />
+                        </td>
+
+                        <td style={actionCellStyle}>
+                          <div className="row-actions">
+                            <Link
+                              to={`/app/pincodes?edit=${item.id}`}
+                              style={compactSecondaryButton}
+                            >
+                              Edit
+                            </Link>
+
                             <button
                               type="submit"
-                              style={dangerButton}
-                              onClick={(e) => {
-                                const ok = window.confirm(`Delete pincode ${item.pincode}?`);
-                                if (!ok) e.preventDefault();
+                              name="intent"
+                              value={`delete:${item.id}`}
+                              style={compactDangerButton}
+                              onClick={(event) => {
+                                const confirmed =
+                                  window.confirm(
+                                    `Delete pincode ${item.pincode}?`,
+                                  );
+
+                                if (!confirmed) {
+                                  event.preventDefault();
+                                }
                               }}
                             >
                               Delete
                             </button>
-                          </Form>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {pincodes.length > 0 ? (
-            <div style={{ marginTop: "16px" }}>
-              <button
-                type="submit"
-                style={dangerButton}
-                onClick={(e) => {
-                  const ok = window.confirm("Delete all selected pincodes?");
-                  if (!ok) e.preventDefault();
-                }}
-              >
-                Delete selected
-              </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
-          ) : null}
-        </Form>
+
+            {pincodes.length > 0 ? (
+              <div className="bulk-action-bar">
+                <div>
+                  <strong>Bulk actions</strong>
+
+                  <span>
+                    Select one or more records from the
+                    table.
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  name="intent"
+                  value="bulk-delete"
+                  style={dangerButton}
+                  onClick={(event) => {
+                    const confirmed = window.confirm(
+                      "Delete all selected pincodes?",
+                    );
+
+                    if (!confirmed) {
+                      event.preventDefault();
+                    }
+                  }}
+                >
+                  Delete selected
+                </button>
+              </div>
+            ) : null}
+          </Form>
+        </section>
       </div>
-    </div>
+
+      <style>
+        {`
+          .pincode-page {
+            display: grid;
+            gap: 20px;
+            padding-bottom: 36px;
+          }
+
+          .pincode-intro-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap;
+            padding: 24px;
+            border: 1px solid #e3e5e7;
+            border-radius: 16px;
+            background: #ffffff;
+            box-shadow: 0 4px 18px rgba(20, 25, 30, 0.04);
+          }
+
+          .pincode-section-title,
+          .pincode-card-title {
+            margin: 0;
+            color: #202223;
+            font-size: 20px;
+            font-weight: 700;
+          }
+
+          .pincode-section-description,
+          .pincode-card-description {
+            margin: 6px 0 0;
+            color: #6d7175;
+            font-size: 14px;
+            line-height: 1.55;
+          }
+
+          .pincode-count-badge,
+          .editing-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 7px 11px;
+            border-radius: 999px;
+            background: #eef4ff;
+            color: #254f9c;
+            font-size: 12px;
+            font-weight: 700;
+          }
+
+          .pincode-card {
+            overflow: hidden;
+            border: 1px solid #e3e5e7;
+            border-radius: 16px;
+            background: #ffffff;
+            box-shadow: 0 4px 18px rgba(20, 25, 30, 0.04);
+          }
+
+          .pincode-card-header,
+          .saved-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap;
+            padding: 22px 24px;
+            border-bottom: 1px solid #ebebeb;
+            background: #fafbfb;
+          }
+
+          .pincode-card-body {
+            padding: 24px;
+          }
+
+          .pincode-form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 18px;
+          }
+
+          .input-suffix {
+            position: absolute;
+            top: 50%;
+            right: 14px;
+            transform: translateY(-50%);
+            color: #6d7175;
+            font-size: 13px;
+            pointer-events: none;
+          }
+
+          .availability-box {
+            margin-top: 24px;
+            padding: 20px;
+            border: 1px solid #e3e5e7;
+            border-radius: 14px;
+            background: #fafbfb;
+          }
+
+          .availability-title {
+            margin: 0 0 15px;
+            color: #202223;
+            font-size: 15px;
+            font-weight: 700;
+          }
+
+          .availability-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 12px;
+          }
+
+          .form-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 24px;
+          }
+
+          .saved-header {
+            background: #ffffff;
+          }
+
+          .search-form {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+          }
+
+          .table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+          }
+
+          .pincode-table {
+            width: 100%;
+            min-width: 900px;
+            border-collapse: collapse;
+            font-size: 14px;
+          }
+
+          .pincode-table thead {
+            background: #f6f6f7;
+          }
+
+          .pincode-table tbody tr {
+            border-top: 1px solid #ededed;
+            transition: background 0.15s ease;
+          }
+
+          .pincode-table tbody tr:hover {
+            background: #fafbfb;
+          }
+
+          .pincode-number {
+            color: #202223;
+            font-size: 14px;
+            font-weight: 750;
+          }
+
+          .location-primary {
+            color: #303030;
+            font-size: 14px;
+            font-weight: 600;
+          }
+
+          .location-secondary {
+            margin-top: 3px;
+            color: #8c9196;
+            font-size: 12px;
+          }
+
+          .eta-text {
+            color: #303030;
+            font-size: 13px;
+            font-weight: 600;
+          }
+
+          .muted-text {
+            color: #8c9196;
+            font-size: 13px;
+          }
+
+          .row-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            flex-wrap: wrap;
+          }
+
+          .bulk-action-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap;
+            padding: 16px 24px;
+            border-top: 1px solid #e3e5e7;
+            background: #fafbfb;
+          }
+
+          .bulk-action-bar strong {
+            display: block;
+            color: #303030;
+            font-size: 13px;
+          }
+
+          .bulk-action-bar span {
+            display: block;
+            margin-top: 3px;
+            color: #8c9196;
+            font-size: 12px;
+          }
+
+          .empty-table-cell {
+            padding: 50px 20px;
+            text-align: center;
+          }
+
+          .empty-state {
+            max-width: 420px;
+            margin: 0 auto;
+          }
+
+          .empty-state-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 52px;
+            height: 52px;
+            margin-bottom: 14px;
+            border-radius: 14px;
+            background: #eef4ff;
+            color: #254f9c;
+            font-size: 23px;
+            font-weight: 800;
+          }
+
+          .empty-state h3 {
+            margin: 0;
+            color: #202223;
+            font-size: 17px;
+          }
+
+          .empty-state p {
+            margin: 8px 0 18px;
+            color: #6d7175;
+            font-size: 14px;
+            line-height: 1.6;
+          }
+
+          .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+          }
+
+          input:focus {
+            border-color: #005bd3 !important;
+            box-shadow: 0 0 0 1px #005bd3;
+            outline: none;
+          }
+
+          @media (max-width: 700px) {
+            .pincode-form-grid {
+              grid-template-columns: 1fr;
+            }
+
+            .pincode-card-body,
+            .pincode-card-header,
+            .saved-header,
+            .pincode-intro-card {
+              padding-left: 18px;
+              padding-right: 18px;
+            }
+
+            .search-form {
+              width: 100%;
+            }
+
+            .search-form input {
+              width: 100% !important;
+              flex: 1 1 100%;
+            }
+
+            .form-actions > * {
+              width: 100%;
+              text-align: center;
+              box-sizing: border-box;
+            }
+
+            .bulk-action-bar {
+              align-items: stretch;
+            }
+
+            .bulk-action-bar button {
+              width: 100%;
+            }
+          }
+        `}
+      </style>
+    </s-page>
   );
 }
 
-const cardStyle: CSSProperties = {
-  border: "1px solid #ddd",
-  borderRadius: "12px",
-  padding: "20px",
-  marginBottom: "24px",
-  background: "#fff",
-};
-
 const errorBox: CSSProperties = {
-  background: "#ffe8e8",
-  color: "#a10000",
-  padding: "12px 16px",
-  borderRadius: "8px",
-  marginBottom: "16px",
-  border: "1px solid #f5b5b5",
+  padding: "14px 16px",
+  border: "1px solid #f2b8b5",
+  borderRadius: "12px",
+  background: "#fff1f0",
+  color: "#8e1f17",
+  fontSize: "14px",
+  fontWeight: 500,
 };
 
 const successBox: CSSProperties = {
-  background: "#e8fff0",
-  color: "#0a6a2f",
-  padding: "12px 16px",
-  borderRadius: "8px",
-  marginBottom: "16px",
-  border: "1px solid #a9e4bc",
+  padding: "14px 16px",
+  border: "1px solid #a9d9bd",
+  borderRadius: "12px",
+  background: "#edf9f1",
+  color: "#08723f",
+  fontSize: "14px",
+  fontWeight: 500,
 };
 
-const inputStyle: CSSProperties = {
+const fieldLabel: CSSProperties = {
+  display: "block",
+  marginBottom: "7px",
+  color: "#303030",
+  fontSize: "13px",
+  fontWeight: 650,
+};
+
+const fieldHelp: CSSProperties = {
+  margin: "6px 0 0",
+  color: "#8c9196",
+  fontSize: "12px",
+  lineHeight: 1.4,
+};
+
+const premiumInput: CSSProperties = {
   width: "100%",
-  padding: "10px 12px",
-  borderRadius: "8px",
-  border: "1px solid #ccc",
-  marginTop: "6px",
-  marginBottom: "4px",
+  minHeight: "44px",
+  padding: "10px 13px",
+  border: "1px solid #c9cccf",
+  borderRadius: "10px",
+  background: "#ffffff",
+  color: "#202223",
+  fontSize: "14px",
+  outline: "none",
   boxSizing: "border-box",
 };
 
+const searchInput: CSSProperties = {
+  width: "280px",
+  minHeight: "40px",
+  padding: "9px 12px",
+  border: "1px solid #c9cccf",
+  borderRadius: "9px",
+  background: "#ffffff",
+  color: "#202223",
+  fontSize: "13px",
+  outline: "none",
+  boxSizing: "border-box",
+};
+
+const optionCard: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: "11px",
+  padding: "14px",
+  border: "1px solid #e3e5e7",
+  borderRadius: "12px",
+  background: "#ffffff",
+  cursor: "pointer",
+};
+
+const optionTitle: CSSProperties = {
+  display: "block",
+  color: "#202223",
+  fontSize: "13px",
+  fontWeight: 700,
+};
+
+const optionDescription: CSSProperties = {
+  display: "block",
+  marginTop: "4px",
+  color: "#6d7175",
+  fontSize: "12px",
+  lineHeight: 1.45,
+};
+
 const thStyle: CSSProperties = {
-  textAlign: "left",
-  padding: "12px",
+  padding: "13px 12px",
   borderBottom: "1px solid #ddd",
-  fontWeight: 600,
+  color: "#616161",
+  fontSize: "12px",
+  fontWeight: 700,
+  letterSpacing: "0.02em",
+  textAlign: "left",
+  textTransform: "uppercase",
+  whiteSpace: "nowrap",
+};
+
+const checkboxHeaderStyle: CSSProperties = {
+  ...thStyle,
+  width: "42px",
+  textAlign: "center",
+};
+
+const actionHeaderStyle: CSSProperties = {
+  ...thStyle,
+  textAlign: "right",
 };
 
 const tdStyle: CSSProperties = {
-  padding: "12px",
-  verticalAlign: "top",
+  padding: "14px 12px",
+  color: "#303030",
+  verticalAlign: "middle",
+};
+
+const checkboxCellStyle: CSSProperties = {
+  ...tdStyle,
+  width: "42px",
+  textAlign: "center",
+};
+
+const actionCellStyle: CSSProperties = {
+  ...tdStyle,
+  textAlign: "right",
 };
 
 const primaryButton: CSSProperties = {
-  background: "#111827",
-  color: "#fff",
-  border: "none",
+  minHeight: "40px",
   padding: "10px 16px",
-  borderRadius: "8px",
-  cursor: "pointer",
+  border: "1px solid #111827",
+  borderRadius: "9px",
+  background: "#111827",
+  color: "#ffffff",
+  fontSize: "13px",
+  fontWeight: 700,
   textDecoration: "none",
 };
 
 const secondaryButton: CSSProperties = {
-  background: "#fff",
-  color: "#111827",
-  border: "1px solid #d1d5db",
-  padding: "10px 16px",
-  borderRadius: "8px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minHeight: "40px",
+  padding: "9px 14px",
+  border: "1px solid #c9cccf",
+  borderRadius: "9px",
+  background: "#ffffff",
+  color: "#202223",
+  fontSize: "13px",
+  fontWeight: 650,
   cursor: "pointer",
   textDecoration: "none",
-  display: "inline-block",
+  boxSizing: "border-box",
+};
+
+const compactSecondaryButton: CSSProperties = {
+  ...secondaryButton,
+  minHeight: "34px",
+  padding: "7px 11px",
+  fontSize: "12px",
 };
 
 const dangerButton: CSSProperties = {
-  background: "#b91c1c",
-  color: "#fff",
-  border: "none",
-  padding: "10px 16px",
-  borderRadius: "8px",
+  minHeight: "40px",
+  padding: "9px 14px",
+  border: "1px solid #b42318",
+  borderRadius: "9px",
+  background: "#b42318",
+  color: "#ffffff",
+  fontSize: "13px",
+  fontWeight: 700,
   cursor: "pointer",
-  textDecoration: "none",
+};
+
+const compactDangerButton: CSSProperties = {
+  ...dangerButton,
+  minHeight: "34px",
+  padding: "7px 11px",
+  fontSize: "12px",
 };
