@@ -5,6 +5,8 @@
   var INITIALIZED_ATTRIBUTE = "data-pincode-initialized";
   var STORAGE_KEY = "pv_last_pincode";
   var BUTTON_DISABLED_CLASS = "pv-purchase-restricted";
+  var RESTRICTION_DESCRIPTION_ID =
+    "pv-purchase-restriction-description";
 
   var defaultSettings = {
     restrictAddToCart: true,
@@ -78,6 +80,7 @@
   var refreshTimer = null;
   var globalEventsAttached = false;
   var restoreStarted = false;
+  var lastAnnouncement = "";
 
   var sharedState = {
     pincode: "",
@@ -93,8 +96,7 @@
 
     selectors.forEach(function (selector) {
       try {
-        var matches =
-          searchRoot.querySelectorAll(selector);
+        var matches = searchRoot.querySelectorAll(selector);
 
         Array.prototype.forEach.call(
           matches,
@@ -142,28 +144,29 @@
     return instances.filter(function (instance) {
       return (
         !instance.destroyed &&
-        document.documentElement.contains(
-          instance.widget,
-        )
+        document.documentElement.contains(instance.widget)
       );
     });
   }
 
-  function getPrimaryEndpoint() {
+  function getPrimaryInstance() {
     var activeInstances = getActiveInstances();
 
-    if (!activeInstances.length) {
-      return "";
-    }
+    return activeInstances.length
+      ? activeInstances[0]
+      : null;
+  }
 
-    return activeInstances[0].endpoint;
+  function getPrimaryEndpoint() {
+    var primaryInstance = getPrimaryInstance();
+
+    return primaryInstance
+      ? primaryInstance.endpoint
+      : "";
   }
 
   function mergeSharedSettings(settings) {
-    if (
-      !settings ||
-      typeof settings !== "object"
-    ) {
+    if (!settings || typeof settings !== "object") {
       return;
     }
 
@@ -177,10 +180,7 @@
 
   function getSavedPincodeRecord() {
     try {
-      var raw =
-        window.localStorage.getItem(
-          STORAGE_KEY,
-        );
+      var raw = window.localStorage.getItem(STORAGE_KEY);
 
       if (!raw) {
         return null;
@@ -194,21 +194,12 @@
         !parsed.pincode ||
         !parsed.expiresAt
       ) {
-        window.localStorage.removeItem(
-          STORAGE_KEY,
-        );
-
+        window.localStorage.removeItem(STORAGE_KEY);
         return null;
       }
 
-      if (
-        Date.now() >
-        Number(parsed.expiresAt)
-      ) {
-        window.localStorage.removeItem(
-          STORAGE_KEY,
-        );
-
+      if (Date.now() > Number(parsed.expiresAt)) {
+        window.localStorage.removeItem(STORAGE_KEY);
         return null;
       }
 
@@ -218,13 +209,9 @@
     }
   }
 
-  function savePincode(
-    pincode,
-    rememberDays,
-  ) {
+  function savePincode(pincode, rememberDays) {
     try {
-      var parsedDays =
-        Number(rememberDays);
+      var parsedDays = Number(rememberDays);
 
       var days =
         Number.isFinite(parsedDays) &&
@@ -252,9 +239,7 @@
 
   function clearSavedPincode() {
     try {
-      window.localStorage.removeItem(
-        STORAGE_KEY,
-      );
+      window.localStorage.removeItem(STORAGE_KEY);
     } catch (error) {
       console.warn(
         "Pincode Validator: saved pincode could not be cleared.",
@@ -262,9 +247,73 @@
     }
   }
 
-  function findClosestProductContext(
-    widget,
-  ) {
+  function ensureRestrictionDescription() {
+    var existing = document.getElementById(
+      RESTRICTION_DESCRIPTION_ID,
+    );
+
+    if (existing) {
+      return existing;
+    }
+
+    var description = document.createElement("span");
+
+    description.id = RESTRICTION_DESCRIPTION_ID;
+    description.className = "pv-visually-hidden";
+    description.textContent =
+      "Complete delivery pincode validation before purchasing this product.";
+
+    document.body.appendChild(description);
+
+    return description;
+  }
+
+  function addDescribedBy(element, descriptionId) {
+    if (!element || !descriptionId) {
+      return;
+    }
+
+    var current = (
+      element.getAttribute("aria-describedby") || ""
+    )
+      .split(/\s+/)
+      .filter(Boolean);
+
+    if (current.indexOf(descriptionId) === -1) {
+      current.push(descriptionId);
+    }
+
+    element.setAttribute(
+      "aria-describedby",
+      current.join(" "),
+    );
+  }
+
+  function removeDescribedBy(element, descriptionId) {
+    if (!element || !descriptionId) {
+      return;
+    }
+
+    var current = (
+      element.getAttribute("aria-describedby") || ""
+    )
+      .split(/\s+/)
+      .filter(Boolean)
+      .filter(function (id) {
+        return id !== descriptionId;
+      });
+
+    if (current.length) {
+      element.setAttribute(
+        "aria-describedby",
+        current.join(" "),
+      );
+    } else {
+      element.removeAttribute("aria-describedby");
+    }
+  }
+
+  function findClosestProductContext(widget) {
     var contextSelectors = [
       ".product",
       ".product__info-container",
@@ -305,20 +354,15 @@
   function getRelevantProductContexts() {
     var contexts = [];
 
-    getActiveInstances().forEach(
-      function (instance) {
-        var context =
-          findClosestProductContext(
-            instance.widget,
-          );
+    getActiveInstances().forEach(function (instance) {
+      var context = findClosestProductContext(
+        instance.widget,
+      );
 
-        if (
-          contexts.indexOf(context) === -1
-        ) {
-          contexts.push(context);
-        }
-      },
-    );
+      if (contexts.indexOf(context) === -1) {
+        contexts.push(context);
+      }
+    });
 
     if (!contexts.length) {
       contexts.push(document);
@@ -328,8 +372,7 @@
   }
 
   function findPurchaseControls() {
-    var contexts =
-      getRelevantProductContexts();
+    var contexts = getRelevantProductContexts();
 
     var addToCartButtons = [];
     var buyNowButtons = [];
@@ -340,9 +383,7 @@
         ADD_TO_CART_SELECTORS,
         context,
       ).forEach(function (node) {
-        if (
-          addToCartButtons.indexOf(node) === -1
-        ) {
+        if (addToCartButtons.indexOf(node) === -1) {
           addToCartButtons.push(node);
         }
       });
@@ -351,9 +392,7 @@
         BUY_NOW_BUTTON_SELECTORS,
         context,
       ).forEach(function (node) {
-        if (
-          buyNowButtons.indexOf(node) === -1
-        ) {
+        if (buyNowButtons.indexOf(node) === -1) {
           buyNowButtons.push(node);
         }
       });
@@ -362,10 +401,7 @@
         BUY_NOW_CONTAINER_SELECTORS,
         context,
       ).forEach(function (node) {
-        if (
-          buyNowContainers.indexOf(node) ===
-          -1
-        ) {
+        if (buyNowContainers.indexOf(node) === -1) {
           buyNowContainers.push(node);
         }
       });
@@ -374,14 +410,11 @@
     return {
       addToCartButtons: addToCartButtons,
       buyNowButtons: buyNowButtons,
-      buyNowContainers:
-        buyNowContainers,
+      buyNowContainers: buyNowContainers,
     };
   }
 
-  function rememberOriginalButtonState(
-    button,
-  ) {
+  function rememberOriginalButtonState(button) {
     if (
       button.getAttribute(
         "data-pv-original-disabled",
@@ -399,15 +432,11 @@
       ) === null
     ) {
       var ariaDisabled =
-        button.getAttribute(
-          "aria-disabled",
-        );
+        button.getAttribute("aria-disabled");
 
       button.setAttribute(
         "data-pv-original-aria-disabled",
-        ariaDisabled === null
-          ? ""
-          : ariaDisabled,
+        ariaDisabled === null ? "" : ariaDisabled,
       );
     }
   }
@@ -417,21 +446,17 @@
       return;
     }
 
+    ensureRestrictionDescription();
     rememberOriginalButtonState(button);
 
     button.disabled = true;
-    button.setAttribute(
-      "aria-disabled",
-      "true",
-    );
+    button.setAttribute("aria-disabled", "true");
+    button.classList.add(BUTTON_DISABLED_CLASS);
+    button.setAttribute("data-pv-restricted", "true");
 
-    button.classList.add(
-      BUTTON_DISABLED_CLASS,
-    );
-
-    button.setAttribute(
-      "data-pv-restricted",
-      "true",
+    addDescribedBy(
+      button,
+      RESTRICTION_DESCRIPTION_ID,
     );
   }
 
@@ -440,15 +465,13 @@
       return;
     }
 
-    var originalDisabled =
-      button.getAttribute(
-        "data-pv-original-disabled",
-      );
+    var originalDisabled = button.getAttribute(
+      "data-pv-original-disabled",
+    );
 
-    var originalAriaDisabled =
-      button.getAttribute(
-        "data-pv-original-aria-disabled",
-      );
+    var originalAriaDisabled = button.getAttribute(
+      "data-pv-original-aria-disabled",
+    );
 
     if (originalDisabled !== null) {
       button.disabled =
@@ -461,9 +484,7 @@
       originalAriaDisabled === null ||
       originalAriaDisabled === ""
     ) {
-      button.removeAttribute(
-        "aria-disabled",
-      );
+      button.removeAttribute("aria-disabled");
     } else {
       button.setAttribute(
         "aria-disabled",
@@ -471,18 +492,16 @@
       );
     }
 
-    button.classList.remove(
-      BUTTON_DISABLED_CLASS,
-    );
+    button.classList.remove(BUTTON_DISABLED_CLASS);
+    button.removeAttribute("data-pv-restricted");
 
-    button.removeAttribute(
-      "data-pv-restricted",
+    removeDescribedBy(
+      button,
+      RESTRICTION_DESCRIPTION_ID,
     );
   }
 
-  function restrictBuyNowContainer(
-    container,
-  ) {
+  function restrictBuyNowContainer(container) {
     if (!container) {
       return;
     }
@@ -512,54 +531,58 @@
     container.style.pointerEvents = "none";
     container.style.opacity = "0.55";
 
-    container.setAttribute(
-      "aria-disabled",
-      "true",
-    );
+    container.setAttribute("aria-disabled", "true");
+    container.classList.add(BUTTON_DISABLED_CLASS);
 
-    container.classList.add(
-      BUTTON_DISABLED_CLASS,
+    addDescribedBy(
+      container,
+      RESTRICTION_DESCRIPTION_ID,
     );
   }
 
-  function restoreBuyNowContainer(
-    container,
-  ) {
+  function restoreBuyNowContainer(container) {
     if (!container) {
       return;
     }
 
-    var pointerEvents =
-      container.getAttribute(
-        "data-pv-original-pointer-events",
-      );
+    var pointerEvents = container.getAttribute(
+      "data-pv-original-pointer-events",
+    );
 
-    var opacity =
-      container.getAttribute(
-        "data-pv-original-opacity",
-      );
+    var opacity = container.getAttribute(
+      "data-pv-original-opacity",
+    );
 
     container.style.pointerEvents =
       pointerEvents || "";
 
-    container.style.opacity =
-      opacity || "";
+    container.style.opacity = opacity || "";
 
-    container.removeAttribute(
-      "aria-disabled",
-    );
-
+    container.removeAttribute("aria-disabled");
     container.classList.remove(
       BUTTON_DISABLED_CLASS,
     );
+
+    removeDescribedBy(
+      container,
+      RESTRICTION_DESCRIPTION_ID,
+    );
+  }
+
+  function updateRestrictionNotes(shouldRestrict) {
+    getActiveInstances().forEach(function (instance) {
+      if (!instance.restrictionNote) {
+        return;
+      }
+
+      instance.restrictionNote.hidden =
+        !shouldRestrict;
+    });
   }
 
   function applySharedPurchaseState() {
-    var controls =
-      findPurchaseControls();
-
-    var settings =
-      sharedState.settings;
+    var controls = findPurchaseControls();
+    var settings = sharedState.settings;
 
     var shouldAllowPurchase =
       !settings.requireValidation ||
@@ -597,15 +620,17 @@
           shouldAllowPurchase ||
           !settings.restrictBuyNow
         ) {
-          restoreBuyNowContainer(
-            container,
-          );
+          restoreBuyNowContainer(container);
         } else {
-          restrictBuyNowContainer(
-            container,
-          );
+          restrictBuyNowContainer(container);
         }
       },
+    );
+
+    updateRestrictionNotes(
+      !shouldAllowPurchase &&
+        (settings.restrictAddToCart ||
+          settings.restrictBuyNow),
     );
   }
 
@@ -614,15 +639,13 @@
       "[data-pincode-input]",
     );
 
-    var submitButton =
-      widget.querySelector(
-        "[data-pincode-submit]",
-      );
+    var submitButton = widget.querySelector(
+      "[data-pincode-submit]",
+    );
 
-    var buttonText =
-      widget.querySelector(
-        "[data-pincode-button-text]",
-      );
+    var buttonText = widget.querySelector(
+      "[data-pincode-button-text]",
+    );
 
     var spinner = widget.querySelector(
       "[data-pincode-spinner]",
@@ -632,15 +655,23 @@
       "[data-pincode-result]",
     );
 
-    var endpoint =
-      widget.getAttribute(
-        "data-endpoint",
-      );
+    var fieldError = widget.querySelector(
+      "[data-pincode-field-error]",
+    );
+
+    var restrictionNote = widget.querySelector(
+      "[data-pincode-restriction-note]",
+    );
+
+    var endpoint = widget.getAttribute(
+      "data-endpoint",
+    );
 
     if (
       !input ||
       !submitButton ||
       !result ||
+      !fieldError ||
       !endpoint
     ) {
       console.warn(
@@ -657,6 +688,8 @@
       buttonText: buttonText,
       spinner: spinner,
       result: result,
+      fieldError: fieldError,
+      restrictionNote: restrictionNote,
       endpoint: endpoint,
       originalButtonLabel: buttonText
         ? buttonText.textContent.trim()
@@ -667,12 +700,8 @@
     };
   }
 
-  function setInstanceLoading(
-    instance,
-    loading,
-  ) {
-    instance.submitButton.disabled =
-      loading;
+  function setInstanceLoading(instance, loading) {
+    instance.submitButton.disabled = loading;
 
     instance.submitButton.setAttribute(
       "aria-busy",
@@ -685,29 +714,56 @@
     );
 
     if (instance.spinner) {
-      instance.spinner.hidden =
-        !loading;
+      instance.spinner.hidden = !loading;
     }
 
     if (instance.buttonText) {
-      instance.buttonText.textContent =
-        loading
-          ? "Checking..."
-          : instance.originalButtonLabel;
+      instance.buttonText.textContent = loading
+        ? "Checking delivery availability"
+        : instance.originalButtonLabel;
     }
   }
 
-  function setAllInstancesLoading(
-    loading,
-  ) {
+  function setAllInstancesLoading(loading) {
     sharedState.loading = loading;
 
     getActiveInstances().forEach(
       function (instance) {
-        setInstanceLoading(
-          instance,
-          loading,
-        );
+        setInstanceLoading(instance, loading);
+      },
+    );
+  }
+
+  function clearFieldError(instance) {
+    instance.input.setAttribute(
+      "aria-invalid",
+      "false",
+    );
+
+    instance.fieldError.textContent = "";
+    instance.fieldError.hidden = true;
+  }
+
+  function setFieldError(instance, message) {
+    instance.input.setAttribute(
+      "aria-invalid",
+      "true",
+    );
+
+    instance.fieldError.textContent = message;
+    instance.fieldError.hidden = false;
+  }
+
+  function clearAllFieldErrors() {
+    getActiveInstances().forEach(
+      clearFieldError,
+    );
+  }
+
+  function setFieldErrorOnAll(message) {
+    getActiveInstances().forEach(
+      function (instance) {
+        setFieldError(instance, message);
       },
     );
   }
@@ -718,10 +774,7 @@
       "pv-widget__result";
   }
 
-  function renderError(
-    instance,
-    message,
-  ) {
+  function renderError(instance, message) {
     instance.result.textContent =
       message ||
       "Could not validate pincode.";
@@ -730,12 +783,8 @@
       "pv-widget__result pv-widget__result--error";
   }
 
-  function renderResult(
-    instance,
-    responseData,
-  ) {
-    var message =
-      responseData.message || "";
+  function renderResult(instance, responseData) {
+    var message = responseData.message || "";
 
     var html = [
       '<div class="pv-widget__message">',
@@ -757,10 +806,8 @@
       );
 
       if (
-        responseData.estDeliveryDays !==
-          null &&
-        responseData.estDeliveryDays !==
-          undefined
+        responseData.estDeliveryDays !== null &&
+        responseData.estDeliveryDays !== undefined
       ) {
         var deliveryDays = Number(
           responseData.estDeliveryDays,
@@ -821,16 +868,65 @@
         "pv-widget__result pv-widget__result--error";
     }
 
-    instance.result.innerHTML =
-      html.join("");
+    instance.result.innerHTML = html.join("");
+  }
+
+  function announceOnce(message) {
+    if (!message || message === lastAnnouncement) {
+      return;
+    }
+
+    lastAnnouncement = message;
+
+    var primaryInstance = getPrimaryInstance();
+
+    if (!primaryInstance) {
+      return;
+    }
+
+    primaryInstance.result.setAttribute(
+      "aria-live",
+      "assertive",
+    );
+
+    window.setTimeout(function () {
+      primaryInstance.result.setAttribute(
+        "aria-live",
+        "polite",
+      );
+    }, 1000);
+  }
+
+  function focusPrimaryResult() {
+    var primaryInstance = getPrimaryInstance();
+
+    if (!primaryInstance) {
+      return;
+    }
+
+    try {
+      primaryInstance.result.focus({
+        preventScroll: true,
+      });
+    } catch (error) {
+      primaryInstance.result.focus();
+    }
+  }
+
+  function focusPrimaryInput() {
+    var primaryInstance = getPrimaryInstance();
+
+    if (!primaryInstance) {
+      return;
+    }
+
+    primaryInstance.input.focus();
   }
 
   function syncInputValues(pincode) {
     getActiveInstances().forEach(
       function (instance) {
-        if (
-          instance.input.value === pincode
-        ) {
+        if (instance.input.value === pincode) {
           return;
         }
 
@@ -842,58 +938,49 @@
   }
 
   function renderSharedState() {
-    var activeInstances =
-      getActiveInstances();
+    var activeInstances = getActiveInstances();
 
-    activeInstances.forEach(
-      function (instance) {
-        setInstanceLoading(
+    activeInstances.forEach(function (instance) {
+      setInstanceLoading(
+        instance,
+        sharedState.loading,
+      );
+
+      if (
+        sharedState.pincode &&
+        instance.input.value !==
+          sharedState.pincode
+      ) {
+        instance.suppressInputEvent = true;
+        instance.input.value =
+          sharedState.pincode;
+        instance.suppressInputEvent = false;
+      }
+
+      if (sharedState.responseData) {
+        renderResult(
           instance,
-          sharedState.loading,
+          sharedState.responseData,
         );
-
-        if (
-          sharedState.pincode &&
-          instance.input.value !==
-            sharedState.pincode
-        ) {
-          instance.suppressInputEvent =
-            true;
-
-          instance.input.value =
-            sharedState.pincode;
-
-          instance.suppressInputEvent =
-            false;
-        }
-
-        if (sharedState.responseData) {
-          renderResult(
-            instance,
-            sharedState.responseData,
-          );
-        } else {
-          renderEmpty(instance);
-        }
-      },
-    );
+      } else {
+        renderEmpty(instance);
+      }
+    });
 
     applySharedPurchaseState();
   }
 
-  function resetSharedValidation(
-    options,
-  ) {
+  function resetSharedValidation(options) {
     var config = options || {};
 
-    sharedState.pincode =
-      config.keepPincode
-        ? sharedState.pincode
-        : "";
+    sharedState.pincode = config.keepPincode
+      ? sharedState.pincode
+      : "";
 
     sharedState.valid = false;
     sharedState.responseData = null;
     sharedState.loading = false;
+    lastAnnouncement = "";
 
     if (config.clearSavedPincode) {
       clearSavedPincode();
@@ -901,26 +988,15 @@
 
     getActiveInstances().forEach(
       function (instance) {
-        setInstanceLoading(
-          instance,
-          false,
-        );
+        setInstanceLoading(instance, false);
 
-        if (
-          config.clearInputs === true
-        ) {
-          instance.suppressInputEvent =
-            true;
-
+        if (config.clearInputs === true) {
+          instance.suppressInputEvent = true;
           instance.input.value = "";
-
-          instance.suppressInputEvent =
-            false;
+          instance.suppressInputEvent = false;
         }
 
-        if (
-          config.clearResults !== false
-        ) {
+        if (config.clearResults !== false) {
           renderEmpty(instance);
         }
       },
@@ -929,9 +1005,7 @@
     applySharedPurchaseState();
   }
 
-  function buildSettingsResponse(
-    responseData,
-  ) {
+  function buildSettingsResponse(responseData) {
     if (
       responseData &&
       responseData.settings
@@ -944,9 +1018,7 @@
     return responseData;
   }
 
-  async function makeValidationRequest(
-    pincode,
-  ) {
+  async function makeValidationRequest(pincode) {
     if (responseCache.has(pincode)) {
       return responseCache.get(pincode);
     }
@@ -955,8 +1027,7 @@
       return pendingRequests.get(pincode);
     }
 
-    var endpoint =
-      getPrimaryEndpoint();
+    var endpoint = getPrimaryEndpoint();
 
     if (!endpoint) {
       throw new Error(
@@ -967,8 +1038,7 @@
     var requestPromise = fetch(endpoint, {
       method: "POST",
       headers: {
-        "Content-Type":
-          "application/json",
+        "Content-Type": "application/json",
         Accept: "application/json",
       },
       credentials: "same-origin",
@@ -980,8 +1050,7 @@
         return response
           .text()
           .then(function (text) {
-            var parsed =
-              parseJsonSafely(text);
+            var parsed = parseJsonSafely(text);
 
             if (!parsed) {
               throw new Error(
@@ -992,30 +1061,23 @@
             buildSettingsResponse(parsed);
 
             if (!response.ok) {
-              var requestError =
-                new Error(
-                  parsed.message ||
-                    "Validation failed.",
-                );
+              var requestError = new Error(
+                parsed.message ||
+                  "Validation failed.",
+              );
 
-              requestError.responseData =
-                parsed;
+              requestError.responseData = parsed;
 
               throw requestError;
             }
 
-            responseCache.set(
-              pincode,
-              parsed,
-            );
+            responseCache.set(pincode, parsed);
 
             return parsed;
           });
       })
       .finally(function () {
-        pendingRequests.delete(
-          pincode,
-        );
+        pendingRequests.delete(pincode);
       });
 
     pendingRequests.set(
@@ -1027,36 +1089,27 @@
   }
 
   async function loadSharedSettings() {
-    var endpoint =
-      getPrimaryEndpoint();
+    var endpoint = getPrimaryEndpoint();
 
     if (!endpoint) {
       return;
     }
 
     try {
-      var response = await fetch(
-        endpoint,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-            Accept:
-              "application/json",
-          },
-          credentials: "same-origin",
-          body: JSON.stringify({
-            pincode: "",
-          }),
+      var response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
         },
-      );
+        credentials: "same-origin",
+        body: JSON.stringify({
+          pincode: "",
+        }),
+      });
 
-      var text =
-        await response.text();
-
-      var parsed =
-        parseJsonSafely(text);
+      var text = await response.text();
+      var parsed = parseJsonSafely(text);
 
       if (
         parsed &&
@@ -1076,17 +1129,14 @@
     }
   }
 
-  function showErrorOnAllWidgets(
-    message,
-  ) {
+  function showErrorOnAllWidgets(message) {
     getActiveInstances().forEach(
       function (instance) {
-        renderError(
-          instance,
-          message,
-        );
+        renderError(instance, message);
       },
     );
+
+    announceOnce(message);
   }
 
   async function validateSharedPincode(
@@ -1094,18 +1144,16 @@
     options,
   ) {
     var config = options || {};
-    var silent = Boolean(
-      config.silent,
-    );
+    var silent = Boolean(config.silent);
 
-    var normalizedPincode =
-      String(pincode || "")
-        .replace(/\D/g, "")
-        .slice(0, 6);
+    var normalizedPincode = String(
+      pincode || "",
+    )
+      .replace(/\D/g, "")
+      .slice(0, 6);
 
-    syncInputValues(
-      normalizedPincode,
-    );
+    syncInputValues(normalizedPincode);
+    clearAllFieldErrors();
 
     if (!normalizedPincode) {
       resetSharedValidation({
@@ -1115,19 +1163,18 @@
       });
 
       if (!silent) {
-        showErrorOnAllWidgets(
-          "Please enter a pincode.",
-        );
+        var requiredMessage =
+          "Please enter a pincode.";
+
+        setFieldErrorOnAll(requiredMessage);
+        showErrorOnAllWidgets(requiredMessage);
+        focusPrimaryInput();
       }
 
       return;
     }
 
-    if (
-      !isValidPincode(
-        normalizedPincode,
-      )
-    ) {
+    if (!isValidPincode(normalizedPincode)) {
       resetSharedValidation({
         clearSavedPincode: true,
         clearInputs: false,
@@ -1135,22 +1182,29 @@
       });
 
       if (!silent) {
-        showErrorOnAllWidgets(
-          "Please enter a valid 6-digit Indian pincode.",
-        );
+        var invalidMessage =
+          "Enter a valid six-digit Indian pincode that does not start with zero.";
+
+        setFieldErrorOnAll(invalidMessage);
+        showErrorOnAllWidgets(invalidMessage);
+        focusPrimaryInput();
       }
 
       return;
     }
 
-    sharedState.pincode =
-      normalizedPincode;
-
+    sharedState.pincode = normalizedPincode;
     sharedState.valid = false;
     sharedState.responseData = null;
 
+    lastAnnouncement = "";
+
     setAllInstancesLoading(true);
     applySharedPurchaseState();
+
+    announceOnce(
+      "Checking delivery availability.",
+    );
 
     try {
       var responseData =
@@ -1158,10 +1212,6 @@
           normalizedPincode,
         );
 
-      /*
-       * Ignore a completed request if the customer changed
-       * the shared pincode while that request was running.
-       */
       if (
         sharedState.pincode !==
         normalizedPincode
@@ -1169,8 +1219,9 @@
         return;
       }
 
-      sharedState.valid =
-        Boolean(responseData.valid);
+      sharedState.valid = Boolean(
+        responseData.valid,
+      );
 
       sharedState.responseData =
         responseData;
@@ -1186,6 +1237,17 @@
       }
 
       renderSharedState();
+
+      announceOnce(
+        responseData.message ||
+          (sharedState.valid
+            ? "Delivery is available."
+            : "Delivery is not available."),
+      );
+
+      if (!silent) {
+        focusPrimaryResult();
+      }
     } catch (error) {
       if (
         sharedState.pincode !==
@@ -1199,7 +1261,7 @@
         error,
       );
 
-      responseData =
+      let responseData =
         error && error.responseData
           ? error.responseData
           : null;
@@ -1211,14 +1273,20 @@
           responseData;
 
         renderSharedState();
+
+        announceOnce(
+          responseData.message ||
+            "Delivery validation failed.",
+        );
       } else {
-        sharedState.responseData =
-          null;
+        sharedState.responseData = null;
 
         if (!silent) {
           showErrorOnAllWidgets(
             "Could not validate the pincode. Please try again.",
           );
+
+          focusPrimaryResult();
         }
       }
 
@@ -1234,13 +1302,10 @@
     }
   }
 
-  function getCurrentVariantValue(
-    instance,
-  ) {
-    var context =
-      findClosestProductContext(
-        instance.widget,
-      );
+  function getCurrentVariantValue(instance) {
+    var context = findClosestProductContext(
+      instance.widget,
+    );
 
     var variantFields = queryAll(
       VARIANT_SELECTORS,
@@ -1269,9 +1334,7 @@
     instance,
   ) {
     var currentVariantValue =
-      getCurrentVariantValue(
-        instance,
-      );
+      getCurrentVariantValue(instance);
 
     if (
       currentVariantValue ===
@@ -1283,12 +1346,6 @@
     instance.variantValue =
       currentVariantValue;
 
-    /*
-     * Pincode availability is currently independent of
-     * variants. We retain the shared validation result and
-     * reapply restrictions after theme-rendered buttons
-     * have been replaced.
-     */
     window.setTimeout(
       applySharedPurchaseState,
       0,
@@ -1305,12 +1362,8 @@
     );
   }
 
-  function handleInstanceInput(
-    instance,
-  ) {
-    if (
-      instance.suppressInputEvent
-    ) {
+  function handleInstanceInput(instance) {
+    if (instance.suppressInputEvent) {
       return;
     }
 
@@ -1327,12 +1380,8 @@
         sanitizedValue;
     }
 
-    /*
-     * Synchronise what the customer types into all blocks.
-     */
-    syncInputValues(
-      sanitizedValue,
-    );
+    clearAllFieldErrors();
+    syncInputValues(sanitizedValue);
 
     if (
       sharedState.pincode &&
@@ -1344,14 +1393,13 @@
 
       sharedState.valid = false;
       sharedState.responseData = null;
+      lastAnnouncement = "";
 
       clearSavedPincode();
 
       getActiveInstances().forEach(
         function (activeInstance) {
-          renderEmpty(
-            activeInstance,
-          );
+          renderEmpty(activeInstance);
         },
       );
 
@@ -1359,9 +1407,7 @@
     }
   }
 
-  function attachInstanceEvents(
-    instance,
-  ) {
+  function attachInstanceEvents(instance) {
     if (instance.spinner) {
       instance.spinner.hidden = true;
     }
@@ -1391,22 +1437,36 @@
     instance.input.addEventListener(
       "input",
       function () {
-        handleInstanceInput(
-          instance,
-        );
+        handleInstanceInput(instance);
       },
     );
 
-    var context =
-      findClosestProductContext(
-        instance.widget,
-      );
+    instance.input.addEventListener(
+      "blur",
+      function () {
+        var value =
+          instance.input.value.trim();
+
+        if (
+          value &&
+          !isValidPincode(value)
+        ) {
+          setFieldError(
+            instance,
+            "Enter a valid six-digit Indian pincode.",
+          );
+        }
+      },
+    );
+
+    var context = findClosestProductContext(
+      instance.widget,
+    );
 
     context.addEventListener(
       "change",
       function (event) {
-        var target =
-          event.target;
+        var target = event.target;
 
         if (
           !(target instanceof Element)
@@ -1436,29 +1496,25 @@
     );
 
     instance.variantValue =
-      getCurrentVariantValue(
-        instance,
-      );
+      getCurrentVariantValue(instance);
   }
 
   function applySharedStateToNewInstance(
     instance,
   ) {
     if (sharedState.pincode) {
-      instance.suppressInputEvent =
-        true;
-
+      instance.suppressInputEvent = true;
       instance.input.value =
         sharedState.pincode;
-
-      instance.suppressInputEvent =
-        false;
+      instance.suppressInputEvent = false;
     }
 
     setInstanceLoading(
       instance,
       sharedState.loading,
     );
+
+    clearFieldError(instance);
 
     if (sharedState.responseData) {
       renderResult(
@@ -1482,8 +1538,7 @@
       return;
     }
 
-    var instance =
-      createInstance(widget);
+    var instance = createInstance(widget);
 
     if (!instance) {
       return;
@@ -1497,20 +1552,15 @@
     attachInstanceEvents(instance);
     instances.push(instance);
 
-    applySharedStateToNewInstance(
-      instance,
-    );
+    applySharedStateToNewInstance(instance);
   }
 
   function initializeWidgets(root) {
-    var searchRoot =
-      root || document;
+    var searchRoot = root || document;
 
     if (
       searchRoot instanceof Element &&
-      searchRoot.matches(
-        WIDGET_SELECTOR,
-      )
+      searchRoot.matches(WIDGET_SELECTOR)
     ) {
       initializeWidget(searchRoot);
     }
@@ -1567,17 +1617,14 @@
   }
 
   function scheduleRefresh(delay) {
-    window.clearTimeout(
-      refreshTimer,
-    );
+    window.clearTimeout(refreshTimer);
 
-    refreshTimer =
-      window.setTimeout(
-        refreshAllInstances,
-        typeof delay === "number"
-          ? delay
-          : 100,
-      );
+    refreshTimer = window.setTimeout(
+      refreshAllInstances,
+      typeof delay === "number"
+        ? delay
+        : 100,
+    );
   }
 
   function attachGlobalEvents() {
@@ -1590,10 +1637,7 @@
     document.addEventListener(
       "shopify:section:load",
       function (event) {
-        initializeWidgets(
-          event.target,
-        );
-
+        initializeWidgets(event.target);
         scheduleRefresh(50);
       },
     );
@@ -1615,10 +1659,7 @@
     document.addEventListener(
       "shopify:block:select",
       function (event) {
-        initializeWidgets(
-          event.target,
-        );
-
+        initializeWidgets(event.target);
         scheduleRefresh(50);
       },
     );
@@ -1674,9 +1715,7 @@
     window.addEventListener(
       "storage",
       function (event) {
-        if (
-          event.key !== STORAGE_KEY
-        ) {
+        if (event.key !== STORAGE_KEY) {
           return;
         }
 
@@ -1718,75 +1757,64 @@
       WIDGET_SELECTOR,
       PRODUCT_FORM_SELECTORS.join(","),
       ADD_TO_CART_SELECTORS.join(","),
-      BUY_NOW_CONTAINER_SELECTORS.join(
-        ",",
-      ),
+      BUY_NOW_CONTAINER_SELECTORS.join(","),
     ].join(",");
 
-    globalObserver =
-      new MutationObserver(
-        function (mutations) {
-          var shouldRefresh =
-            mutations.some(
-              function (mutation) {
+    globalObserver = new MutationObserver(
+      function (mutations) {
+        var shouldRefresh = mutations.some(
+          function (mutation) {
+            if (
+              mutation.type !== "childList" ||
+              mutation.addedNodes.length === 0
+            ) {
+              return false;
+            }
+
+            return Array.prototype.some.call(
+              mutation.addedNodes,
+              function (node) {
                 if (
-                  mutation.type !==
-                    "childList" ||
-                  mutation.addedNodes
-                    .length === 0
+                  !(node instanceof Element)
                 ) {
                   return false;
                 }
 
-                return Array.prototype.some.call(
-                  mutation.addedNodes,
-                  function (node) {
-                    if (
-                      !(
-                        node instanceof
-                        Element
-                      )
-                    ) {
-                      return false;
-                    }
+                if (
+                  node.matches(
+                    WIDGET_SELECTOR,
+                  ) ||
+                  node.querySelector(
+                    WIDGET_SELECTOR,
+                  )
+                ) {
+                  initializeWidgets(node);
+                }
 
-                    if (
-                      node.matches(
-                        WIDGET_SELECTOR,
-                      ) ||
+                try {
+                  return (
+                    node.matches(
+                      relevantSelector,
+                    ) ||
+                    Boolean(
                       node.querySelector(
-                        WIDGET_SELECTOR,
-                      )
-                    ) {
-                      initializeWidgets(
-                        node,
-                      );
-                    }
-
-                    try {
-                      return (
-                        node.matches(
-                          relevantSelector,
-                        ) ||
-                        Boolean(
-                          node.querySelector(
-                            relevantSelector,
-                          ),
-                        )
-                      );
-                    } catch (error) {
-                      return false;
-                    }
-                  },
-                );
+                        relevantSelector,
+                      ),
+                    )
+                  );
+                } catch (error) {
+                  return false;
+                }
               },
             );
+          },
+        );
 
-          if (shouldRefresh) {
-            scheduleRefresh(80);
-          }
-        },
-      );
+        if (shouldRefresh) {
+          scheduleRefresh(80);
+        }
+      },
+    );
 
     globalObserver.observe(
       document.body,
@@ -1825,6 +1853,7 @@
   }
 
   function start() {
+    ensureRestrictionDescription();
     initializeWidgets(document);
     attachGlobalEvents();
     startMutationObserver();
@@ -1832,10 +1861,7 @@
     scheduleRefresh(100);
   }
 
-  if (
-    document.readyState ===
-    "loading"
-  ) {
+  if (document.readyState === "loading") {
     document.addEventListener(
       "DOMContentLoaded",
       start,

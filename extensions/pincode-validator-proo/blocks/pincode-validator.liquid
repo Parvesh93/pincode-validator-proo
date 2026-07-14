@@ -7,40 +7,67 @@
   data-product-id="{{ product.id | default: '' }}"
   data-endpoint="/apps/pincode-validator/validate"
 >
-  <div class="pv-widget__heading">
-    {{ block.settings.heading | escape }}
+  <div class="pv-widget__header">
+    <h2 class="pv-widget__heading">
+      {{ block.settings.heading | escape }}
+    </h2>
+
+    {% if block.settings.description != blank %}
+      <p
+        id="pincode-description-{{ block.id }}"
+        class="pv-widget__description"
+      >
+        {{ block.settings.description | escape }}
+      </p>
+    {% endif %}
   </div>
 
-  {% if block.settings.description != blank %}
-    <div class="pv-widget__description">
-      {{ block.settings.description | escape }}
-    </div>
-  {% endif %}
-
   <div class="pv-widget__form">
-    <label
-      class="pv-visually-hidden"
-      for="pincode-input-{{ block.id }}"
-    >
-      Delivery pincode
-    </label>
+    <div class="pv-widget__field">
+      <label
+        class="pv-widget__label"
+        for="pincode-input-{{ block.id }}"
+      >
+        {{ block.settings.input_label | escape }}
+      </label>
 
-    <input
-      id="pincode-input-{{ block.id }}"
-      class="pv-widget__input"
-      type="text"
-      inputmode="numeric"
-      autocomplete="postal-code"
-      maxlength="6"
-      pattern="[1-9][0-9]{5}"
-      placeholder="{{ block.settings.placeholder | escape }}"
-      aria-describedby="pincode-result-{{ block.id }}"
-      data-pincode-input
-    >
+      <input
+        id="pincode-input-{{ block.id }}"
+        class="pv-widget__input"
+        type="text"
+        inputmode="numeric"
+        autocomplete="postal-code"
+        maxlength="6"
+        pattern="[1-9][0-9]{5}"
+        placeholder="{{ block.settings.placeholder | escape }}"
+        aria-describedby="
+          pincode-description-{{ block.id }}
+          pincode-help-{{ block.id }}
+          pincode-error-{{ block.id }}
+        "
+        aria-invalid="false"
+        data-pincode-input
+      >
+
+      <span
+        id="pincode-help-{{ block.id }}"
+        class="pv-widget__help"
+      >
+        Enter a six-digit Indian pincode.
+      </span>
+
+      <span
+        id="pincode-error-{{ block.id }}"
+        class="pv-widget__field-error"
+        data-pincode-field-error
+        hidden
+      ></span>
+    </div>
 
     <button
       class="pv-widget__button"
       type="button"
+      aria-describedby="pincode-result-{{ block.id }}"
       data-pincode-submit
     >
       <span data-pincode-button-text>
@@ -51,6 +78,7 @@
         class="pv-widget__spinner"
         data-pincode-spinner
         aria-hidden="true"
+        hidden
       ></span>
     </button>
   </div>
@@ -61,8 +89,17 @@
     role="status"
     aria-live="polite"
     aria-atomic="true"
+    tabindex="-1"
     data-pincode-result
   ></div>
+
+  <p
+    class="pv-widget__restriction-note"
+    data-pincode-restriction-note
+    hidden
+  >
+    Complete pincode validation to enable the purchase buttons.
+  </p>
 
   <noscript>
     <p class="pv-widget__noscript">
@@ -89,6 +126,12 @@
       "id": "description",
       "label": "Description",
       "default": "Enter your pincode to check delivery time and payment options."
+    },
+    {
+      "type": "text",
+      "id": "input_label",
+      "label": "Input label",
+      "default": "Delivery pincode"
     },
     {
       "type": "text",
