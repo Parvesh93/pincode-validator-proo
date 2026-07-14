@@ -1,17 +1,38 @@
-import { AppProvider } from "@shopify/polaris";
 import "@shopify/polaris/build/esm/styles.css";
+
+import type { CSSProperties } from "react";
+import {
+  AppProvider,
+  Banner,
+  BlockStack,
+  Box,
+  Button,
+  Card,
+  Checkbox,
+  InlineGrid,
+  InlineStack,
+  Layout,
+  Page,
+  Text,
+  TextField,
+} from "@shopify/polaris";
+
 import {
   Form,
+  data,
   useActionData,
   useLoaderData,
   useNavigation,
+  type ActionFunctionArgs,
+  type LoaderFunctionArgs,
 } from "react-router";
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { data } from "react-router";
-import { Page, Layout, Card, BlockStack, Text, Button, Banner } from "@shopify/polaris";
+
 import { authenticate } from "../shopify.server";
 import { getOrCreateShopByDomain } from "../lib/pincode.server";
-import { getSettingsByShopId, upsertSettings } from "../lib/settings.server";
+import {
+  getSettingsByShopId,
+  upsertSettings,
+} from "../lib/settings.server";
 
 type ActionData = {
   success?: string;
@@ -24,267 +45,875 @@ function toBool(value: FormDataEntryValue | null) {
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { session } = await authenticate.admin(request);
+
   const shop = await getOrCreateShopByDomain(session.shop);
   const settings = await getSettingsByShopId(shop.id);
 
   return data({
     settings: {
-      restrictAddToCart: settings?.restrictAddToCart ?? true,
-      restrictBuyNow: settings?.restrictBuyNow ?? true,
-      enableEmbed: settings?.enableEmbed ?? true,
-      enableBlock: settings?.enableBlock ?? true,
-      requireValidation: settings?.requireValidation ?? true,
+      restrictAddToCart:
+        settings?.restrictAddToCart ?? true,
+
+      restrictBuyNow:
+        settings?.restrictBuyNow ?? true,
+
+      enableEmbed:
+        settings?.enableEmbed ?? true,
+
+      enableBlock:
+        settings?.enableBlock ?? true,
+
+      requireValidation:
+        settings?.requireValidation ?? true,
+
       successMessage:
-        settings?.successMessage ?? "Delivery available for this pincode.",
+        settings?.successMessage ??
+        "Delivery available for this pincode.",
+
       failureMessage:
         settings?.failureMessage ??
         "Sorry, delivery is not available for this pincode.",
-      defaultCountry: settings?.defaultCountry ?? "India",
-      rememberPincodeDays: settings?.rememberPincodeDays ?? 7,
+
+      defaultCountry:
+        settings?.defaultCountry ?? "India",
+
+      rememberPincodeDays:
+        settings?.rememberPincodeDays ?? 7,
     },
   });
 }
 
 export async function action({ request }: ActionFunctionArgs) {
   const { session } = await authenticate.admin(request);
+
   const shop = await getOrCreateShopByDomain(session.shop);
   const formData = await request.formData();
 
   try {
-    const successMessage = String(formData.get("successMessage") || "").trim();
-    const failureMessage = String(formData.get("failureMessage") || "").trim();
+    const successMessage = String(
+      formData.get("successMessage") || "",
+    ).trim();
+
+    const failureMessage = String(
+      formData.get("failureMessage") || "",
+    ).trim();
+
     const defaultCountry =
-      String(formData.get("defaultCountry") || "").trim() || null;
+      String(
+        formData.get("defaultCountry") || "",
+      ).trim() || null;
+
+    const rememberPincodeDaysRaw = String(
+      formData.get("rememberPincodeDays") || "",
+    ).trim();
+
     const rememberPincodeDays = Number(
-      String(formData.get("rememberPincodeDays") || "").trim(),
+      rememberPincodeDaysRaw,
     );
 
     if (!successMessage) {
       return data<ActionData>(
-        { error: "Success message is required." },
-        { status: 400 },
+        {
+          error: "Success message is required.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    if (successMessage.length > 250) {
+      return data<ActionData>(
+        {
+          error:
+            "Success message cannot be longer than 250 characters.",
+        },
+        {
+          status: 400,
+        },
       );
     }
 
     if (!failureMessage) {
       return data<ActionData>(
-        { error: "Failure message is required." },
-        { status: 400 },
+        {
+          error: "Failure message is required.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    if (failureMessage.length > 250) {
+      return data<ActionData>(
+        {
+          error:
+            "Failure message cannot be longer than 250 characters.",
+        },
+        {
+          status: 400,
+        },
       );
     }
 
     if (
-      Number.isNaN(rememberPincodeDays) ||
+      !rememberPincodeDaysRaw ||
+      !Number.isInteger(rememberPincodeDays) ||
       rememberPincodeDays < 1 ||
       rememberPincodeDays > 365
     ) {
       return data<ActionData>(
-        { error: "Remember pincode days must be between 1 and 365." },
-        { status: 400 },
+        {
+          error:
+            "Remember pincode days must be a whole number between 1 and 365.",
+        },
+        {
+          status: 400,
+        },
       );
     }
 
     await upsertSettings({
       shopId: shop.id,
-      restrictAddToCart: toBool(formData.get("restrictAddToCart")),
-      restrictBuyNow: toBool(formData.get("restrictBuyNow")),
-      enableEmbed: toBool(formData.get("enableEmbed")),
-      enableBlock: toBool(formData.get("enableBlock")),
-      requireValidation: toBool(formData.get("requireValidation")),
+
+      restrictAddToCart: toBool(
+        formData.get("restrictAddToCart"),
+      ),
+
+      restrictBuyNow: toBool(
+        formData.get("restrictBuyNow"),
+      ),
+
+      enableEmbed: toBool(
+        formData.get("enableEmbed"),
+      ),
+
+      enableBlock: toBool(
+        formData.get("enableBlock"),
+      ),
+
+      requireValidation: toBool(
+        formData.get("requireValidation"),
+      ),
+
       successMessage,
       failureMessage,
       defaultCountry,
       rememberPincodeDays,
     });
 
-    return data<ActionData>({ success: "Settings saved successfully." });
-  } catch (error: any) {
+    return data<ActionData>({
+      success: "Settings saved successfully.",
+    });
+  } catch (error: unknown) {
+    console.error("Failed to save settings:", error);
+
     return data<ActionData>(
-      { error: error?.message || "Failed to save settings." },
-      { status: 500 },
+      {
+        error:
+          "Settings could not be saved. Please try again.",
+      },
+      {
+        status: 500,
+      },
     );
   }
 }
 
 export default function SettingsPage() {
   const { settings } = useLoaderData<typeof loader>();
-  const actionData = useActionData() as ActionData | undefined;
+
+  const actionData =
+    useActionData<typeof action>() as ActionData | undefined;
+
   const navigation = useNavigation();
 
-  const isSubmitting = navigation.state === "submitting";
+  const isSubmitting =
+    navigation.state === "submitting";
 
   return (
-    <AppProvider i18n={{}}><Page
-      title="Settings"
-      subtitle="Control validation behavior and storefront messages."
-    >
-      <Layout>
-        {actionData?.error ? (
+    <AppProvider i18n={{}}>
+      <Page
+        title="Settings"
+        subtitle="Control storefront validation, button restrictions and customer-facing messages."
+        backAction={{
+          content: "Dashboard",
+          url: "/app",
+        }}
+      >
+        <Layout>
+          {actionData?.error ? (
+            <Layout.Section>
+              <Banner
+                tone="critical"
+                title="Settings could not be saved"
+              >
+                <p>{actionData.error}</p>
+              </Banner>
+            </Layout.Section>
+          ) : null}
+
+          {actionData?.success ? (
+            <Layout.Section>
+              <Banner
+                tone="success"
+                title="Settings updated"
+              >
+                <p>{actionData.success}</p>
+              </Banner>
+            </Layout.Section>
+          ) : null}
+
           <Layout.Section>
-            <Banner tone="critical">
-              <p>{actionData.error}</p>
-            </Banner>
+            <div className="settings-hero">
+              <div>
+                <span className="settings-hero-badge">
+                  Storefront configuration
+                </span>
+
+                <h2>
+                  Control how delivery validation works
+                </h2>
+
+                <p>
+                  Configure customer validation rules,
+                  storefront messages and how long a verified
+                  pincode should remain remembered.
+                </p>
+              </div>
+
+              <div className="settings-status">
+                <span
+                  className={
+                    settings.requireValidation
+                      ? "settings-status-dot settings-status-dot-active"
+                      : "settings-status-dot"
+                  }
+                />
+
+                <span>
+                  Validation{" "}
+                  {settings.requireValidation
+                    ? "enabled"
+                    : "disabled"}
+                </span>
+              </div>
+            </div>
           </Layout.Section>
-        ) : null}
 
-        {actionData?.success ? (
-          <Layout.Section>
-            <Banner tone="success">
-              <p>{actionData.success}</p>
-            </Banner>
-          </Layout.Section>
-        ) : null}
+          <Form method="post">
+            <Layout>
+              <Layout.Section>
+                <Card>
+                  <BlockStack gap="500">
+                    <div>
+                      <Text as="h2" variant="headingLg">
+                        Validation rules
+                      </Text>
 
-        <Layout.Section>
-          <Card>
-            <Form method="post">
-              <BlockStack gap="500">
-                <Text as="h2" variant="headingMd">
-                  Validation Rules
-                </Text>
+                      <Box paddingBlockStart="150">
+                        <Text as="p" tone="subdued">
+                          Choose when customers must validate
+                          their pincode and which purchase
+                          buttons should be restricted.
+                        </Text>
+                      </Box>
+                    </div>
 
-                <div style={{ display: "grid", gap: 12 }}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      name="requireValidation"
-                      defaultChecked={settings.requireValidation}
-                    />{" "}
-                    Require pincode validation before purchase
-                  </label>
+                    <div className="settings-option-grid">
+                      <div
+                        className={
+                          settings.requireValidation
+                            ? "settings-option-card settings-option-card-active"
+                            : "settings-option-card"
+                        }
+                      >
+                        <Checkbox
+                          label="Require pincode validation"
+                          name="requireValidation"
+                          defaultChecked={
+                            settings.requireValidation
+                          }
+                          helpText="Customers must check delivery availability before continuing."
+                        />
+                      </div>
 
-                  <label>
-                    <input
-                      type="checkbox"
-                      name="restrictAddToCart"
-                      defaultChecked={settings.restrictAddToCart}
-                    />{" "}
-                    Restrict Add to Cart when pincode is not validated
-                  </label>
+                      <div
+                        className={
+                          settings.restrictAddToCart
+                            ? "settings-option-card settings-option-card-active"
+                            : "settings-option-card"
+                        }
+                      >
+                        <Checkbox
+                          label="Restrict Add to Cart"
+                          name="restrictAddToCart"
+                          defaultChecked={
+                            settings.restrictAddToCart
+                          }
+                          helpText="Disable visible Add to Cart buttons until validation succeeds."
+                        />
+                      </div>
 
-                  <label>
-                    <input
-                      type="checkbox"
-                      name="restrictBuyNow"
-                      defaultChecked={settings.restrictBuyNow}
-                    />{" "}
-                    Restrict Buy Now when pincode is not validated
-                  </label>
+                      <div
+                        className={
+                          settings.restrictBuyNow
+                            ? "settings-option-card settings-option-card-active"
+                            : "settings-option-card"
+                        }
+                      >
+                        <Checkbox
+                          label="Restrict Buy Now"
+                          name="restrictBuyNow"
+                          defaultChecked={
+                            settings.restrictBuyNow
+                          }
+                          helpText="Disable visible dynamic checkout buttons until validation succeeds."
+                        />
+                      </div>
+                    </div>
+                  </BlockStack>
+                </Card>
+              </Layout.Section>
 
-                  <label>
-                    <input
-                      type="checkbox"
-                      name="enableEmbed"
-                      defaultChecked={settings.enableEmbed}
-                    />{" "}
-                    Enable app embed
-                  </label>
+              <Layout.Section variant="oneThird">
+                <Card>
+                  <BlockStack gap="400">
+                    <div>
+                      <Text as="h2" variant="headingMd">
+                        Current behavior
+                      </Text>
 
-                  <label>
-                    <input
-                      type="checkbox"
-                      name="enableBlock"
-                      defaultChecked={settings.enableBlock}
-                    />{" "}
-                    Enable theme block
-                  </label>
-                </div>
+                      <Box paddingBlockStart="150">
+                        <Text as="p" tone="subdued">
+                          A summary of the rules currently
+                          configured.
+                        </Text>
+                      </Box>
+                    </div>
 
-                <Text as="h2" variant="headingMd">
-                  Messages
-                </Text>
+                    <div className="settings-summary-list">
+                      <div className="settings-summary-row">
+                        <span>Validation</span>
 
-                <div style={{ display: "grid", gap: 16 }}>
-                  <div>
-                    <label
-                      htmlFor="successMessage"
-                      style={{ display: "block", marginBottom: 6, fontWeight: 600 }}
+                        <strong>
+                          {settings.requireValidation
+                            ? "Required"
+                            : "Optional"}
+                        </strong>
+                      </div>
+
+                      <div className="settings-summary-row">
+                        <span>Add to Cart</span>
+
+                        <strong>
+                          {settings.restrictAddToCart
+                            ? "Restricted"
+                            : "Allowed"}
+                        </strong>
+                      </div>
+
+                      <div className="settings-summary-row">
+                        <span>Buy Now</span>
+
+                        <strong>
+                          {settings.restrictBuyNow
+                            ? "Restricted"
+                            : "Allowed"}
+                        </strong>
+                      </div>
+
+                      <div className="settings-summary-row">
+                        <span>Remembered for</span>
+
+                        <strong>
+                          {settings.rememberPincodeDays} days
+                        </strong>
+                      </div>
+                    </div>
+                  </BlockStack>
+                </Card>
+              </Layout.Section>
+
+              <Layout.Section>
+                <Card>
+                  <BlockStack gap="500">
+                    <div>
+                      <Text as="h2" variant="headingLg">
+                        Theme integration
+                      </Text>
+
+                      <Box paddingBlockStart="150">
+                        <Text as="p" tone="subdued">
+                          Control which storefront integration
+                          methods are available to the merchant.
+                        </Text>
+                      </Box>
+                    </div>
+
+                    <div className="settings-option-grid settings-option-grid-two">
+                      <label
+                        htmlFor="enable-embed-checkbox"
+                        className={
+                          settings.enableEmbed
+                            ? "settings-option-card settings-option-card-active"
+                            : "settings-option-card"
+                        }
+                      >
+                        <Checkbox
+                          id="enable-embed-checkbox"
+                          label="Enable app embed"
+                          name="enableEmbed"
+                          defaultChecked={
+                            settings.enableEmbed
+                          }
+                          helpText="Allow global storefront integration through the app embed."
+                        />
+                      </label>
+
+                      <label
+                        htmlFor="enable-block-checkbox"
+                        className={
+                          settings.enableBlock
+                            ? "settings-option-card settings-option-card-active"
+                            : "settings-option-card"
+                        }
+                      >
+                        <Checkbox
+                          id="enable-block-checkbox"
+                          label="Enable theme block"
+                          name="enableBlock"
+                          defaultChecked={
+                            settings.enableBlock
+                          }
+                          helpText="Allow merchants to add the pincode validator as a product-page block."
+                        />
+                      </label>
+                    </div>
+
+                    <Banner
+                      tone="info"
+                      title="Theme editor setup"
                     >
-                      Success message
-                    </label>
-                    <input
-                      id="successMessage"
-                      name="successMessage"
-                      defaultValue={settings.successMessage}
-                      style={inputStyle}
-                    />
+                      <p>
+                        The app block or app embed must still
+                        be enabled from Online Store → Themes
+                        → Customize.
+                      </p>
+                    </Banner>
+                  </BlockStack>
+                </Card>
+              </Layout.Section>
+
+              <Layout.Section>
+                <Card>
+                  <BlockStack gap="500">
+                    <div>
+                      <Text as="h2" variant="headingLg">
+                        Customer messages
+                      </Text>
+
+                      <Box paddingBlockStart="150">
+                        <Text as="p" tone="subdued">
+                          Customize the messages shown after a
+                          customer checks their delivery
+                          pincode.
+                        </Text>
+                      </Box>
+                    </div>
+
+                    <InlineGrid
+                      columns={{
+                        xs: 1,
+                        md: 2,
+                      }}
+                      gap="400"
+                    >
+                      <div>
+                        <TextField
+                          label="Success message"
+                          name="successMessage"
+                          defaultValue={
+                            settings.successMessage
+                          }
+                          autoComplete="off"
+                          multiline={3}
+                          maxLength={250}
+                          showCharacterCount
+                          helpText="Shown when delivery is available."
+                        />
+                      </div>
+
+                      <div>
+                        <TextField
+                          label="Failure message"
+                          name="failureMessage"
+                          defaultValue={
+                            settings.failureMessage
+                          }
+                          autoComplete="off"
+                          multiline={3}
+                          maxLength={250}
+                          showCharacterCount
+                          helpText="Shown when delivery is unavailable."
+                        />
+                      </div>
+                    </InlineGrid>
+
+                    <div className="message-preview-grid">
+                      <div className="message-preview message-preview-success">
+                        <span>Success preview</span>
+
+                        <p>
+                          {settings.successMessage}
+                        </p>
+                      </div>
+
+                      <div className="message-preview message-preview-error">
+                        <span>Failure preview</span>
+
+                        <p>
+                          {settings.failureMessage}
+                        </p>
+                      </div>
+                    </div>
+                  </BlockStack>
+                </Card>
+              </Layout.Section>
+
+              <Layout.Section>
+                <Card>
+                  <BlockStack gap="500">
+                    <div>
+                      <Text as="h2" variant="headingLg">
+                        Defaults and memory
+                      </Text>
+
+                      <Box paddingBlockStart="150">
+                        <Text as="p" tone="subdued">
+                          Define the default market and how
+                          long a successful validation should
+                          be remembered.
+                        </Text>
+                      </Box>
+                    </div>
+
+                    <InlineGrid
+                      columns={{
+                        xs: 1,
+                        md: 2,
+                      }}
+                      gap="400"
+                    >
+                      <TextField
+                        label="Default country"
+                        name="defaultCountry"
+                        defaultValue={
+                          settings.defaultCountry || ""
+                        }
+                        autoComplete="country-name"
+                        helpText="Used when imported or manually created records do not specify a country."
+                      />
+
+                      <TextField
+                        label="Remember pincode for"
+                        name="rememberPincodeDays"
+                        type="number"
+                        min={1}
+                        max={365}
+                        step={1}
+                        defaultValue={String(
+                          settings.rememberPincodeDays,
+                        )}
+                        autoComplete="off"
+                        suffix="days"
+                        helpText="Choose a value between 1 and 365 days."
+                      />
+                    </InlineGrid>
+                  </BlockStack>
+                </Card>
+              </Layout.Section>
+
+              <Layout.Section>
+                <div className="settings-save-bar">
+                  <div>
+                    <strong>Save storefront settings</strong>
+
+                    <span>
+                      Changes will apply to future storefront
+                      validation requests.
+                    </span>
                   </div>
 
-                  <div>
-                    <label
-                      htmlFor="failureMessage"
-                      style={{ display: "block", marginBottom: 6, fontWeight: 600 }}
+                  <InlineStack gap="300">
+                    <Button
+                      url="/app"
+                      disabled={isSubmitting}
                     >
-                      Failure message
-                    </label>
-                    <input
-                      id="failureMessage"
-                      name="failureMessage"
-                      defaultValue={settings.failureMessage}
-                      style={inputStyle}
-                    />
-                  </div>
-                </div>
+                      Cancel
+                    </Button>
 
-                <Text as="h2" variant="headingMd">
-                  Defaults
-                </Text>
-
-                <div style={{ display: "grid", gap: 16 }}>
-                  <div>
-                    <label
-                      htmlFor="defaultCountry"
-                      style={{ display: "block", marginBottom: 6, fontWeight: 600 }}
+                    <Button
+                      submit
+                      variant="primary"
+                      loading={isSubmitting}
+                      disabled={isSubmitting}
                     >
-                      Default country
-                    </label>
-                    <input
-                      id="defaultCountry"
-                      name="defaultCountry"
-                      defaultValue={settings.defaultCountry}
-                      style={inputStyle}
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="rememberPincodeDays"
-                      style={{ display: "block", marginBottom: 6, fontWeight: 600 }}
-                    >
-                      Remember pincode for days
-                    </label>
-                    <input
-                      id="rememberPincodeDays"
-                      name="rememberPincodeDays"
-                      type="number"
-                      min="1"
-                      max="365"
-                      defaultValue={String(settings.rememberPincodeDays)}
-                      style={inputStyle}
-                    />
-                  </div>
+                      Save settings
+                    </Button>
+                  </InlineStack>
                 </div>
+              </Layout.Section>
+            </Layout>
+          </Form>
+        </Layout>
 
-                <div>
-                  <Button submit variant="primary" loading={isSubmitting}>
-                    Save settings
-                  </Button>
-                </div>
-              </BlockStack>
-            </Form>
-          </Card>
-        </Layout.Section>
-      </Layout>
-    </Page>
+        <style>
+          {`
+            .settings-hero {
+              position: relative;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 24px;
+              overflow: hidden;
+              padding: 30px;
+              border-radius: 18px;
+              background:
+                linear-gradient(
+                  135deg,
+                  #1f2937 0%,
+                  #111827 58%,
+                  #0f766e 145%
+                );
+              color: #ffffff;
+              box-shadow:
+                0 12px 30px rgba(17, 24, 39, 0.16);
+            }
+
+            .settings-hero > div {
+              position: relative;
+              z-index: 2;
+            }
+
+            .settings-hero-badge {
+              display: inline-flex;
+              padding: 6px 10px;
+              border: 1px solid
+                rgba(255, 255, 255, 0.18);
+              border-radius: 999px;
+              background:
+                rgba(255, 255, 255, 0.08);
+              font-size: 12px;
+              font-weight: 700;
+              letter-spacing: 0.03em;
+            }
+
+            .settings-hero h2 {
+              margin: 16px 0 9px;
+              font-size: 27px;
+              line-height: 1.2;
+            }
+
+            .settings-hero p {
+              max-width: 680px;
+              margin: 0;
+              color: rgba(255, 255, 255, 0.78);
+              font-size: 14px;
+              line-height: 1.7;
+            }
+
+            .settings-status {
+              display: inline-flex;
+              align-items: center;
+              gap: 8px;
+              flex-shrink: 0;
+              padding: 10px 13px;
+              border: 1px solid
+                rgba(255, 255, 255, 0.18);
+              border-radius: 999px;
+              background:
+                rgba(255, 255, 255, 0.08);
+              color: #ffffff;
+              font-size: 12px;
+              font-weight: 700;
+              white-space: nowrap;
+            }
+
+            .settings-status-dot {
+              width: 8px;
+              height: 8px;
+              border-radius: 50%;
+              background: #8c9196;
+            }
+
+            .settings-status-dot-active {
+              background: #4ade80;
+              box-shadow:
+                0 0 0 4px
+                rgba(74, 222, 128, 0.15);
+            }
+
+            .settings-option-grid {
+              display: grid;
+              grid-template-columns:
+                repeat(auto-fit, minmax(250px, 1fr));
+              gap: 14px;
+            }
+
+            .settings-option-grid-two {
+              grid-template-columns:
+                repeat(auto-fit, minmax(280px, 1fr));
+            }
+
+            .settings-option-card {
+              display: block;
+              padding: 16px;
+              border: 1px solid #e3e5e7;
+              border-radius: 13px;
+              background: #ffffff;
+              cursor: pointer;
+              transition:
+                border-color 0.15s ease,
+                background 0.15s ease,
+                box-shadow 0.15s ease;
+            }
+
+            .settings-option-card:hover {
+              border-color: #b5b8bb;
+              box-shadow:
+                0 3px 12px
+                rgba(20, 25, 30, 0.04);
+            }
+
+            .settings-option-card-active {
+              border-color: #005bd3;
+              background: #f2f7ff;
+            }
+
+            .settings-summary-list {
+              display: grid;
+              gap: 0;
+            }
+
+            .settings-summary-row {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 14px;
+              padding: 13px 0;
+              border-bottom: 1px solid #ededed;
+            }
+
+            .settings-summary-row:last-child {
+              border-bottom: 0;
+            }
+
+            .settings-summary-row span {
+              color: #6d7175;
+              font-size: 13px;
+            }
+
+            .settings-summary-row strong {
+              color: #303030;
+              font-size: 13px;
+            }
+
+            .message-preview-grid {
+              display: grid;
+              grid-template-columns:
+                repeat(2, minmax(0, 1fr));
+              gap: 14px;
+            }
+
+            .message-preview {
+              padding: 16px;
+              border: 1px solid #e3e5e7;
+              border-radius: 13px;
+              background: #fafbfb;
+            }
+
+            .message-preview span {
+              display: block;
+              font-size: 11px;
+              font-weight: 800;
+              letter-spacing: 0.04em;
+              text-transform: uppercase;
+            }
+
+            .message-preview p {
+              margin: 8px 0 0;
+              font-size: 13px;
+              line-height: 1.55;
+            }
+
+            .message-preview-success {
+              border-color: #a9d9bd;
+              background: #edf9f1;
+              color: #08723f;
+            }
+
+            .message-preview-error {
+              border-color: #f2b8b5;
+              background: #fff1f0;
+              color: #8e1f17;
+            }
+
+            .settings-save-bar {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 20px;
+              flex-wrap: wrap;
+              padding: 18px 20px;
+              border: 1px solid #dfe3e8;
+              border-radius: 14px;
+              background: #ffffff;
+              box-shadow:
+                0 8px 24px
+                rgba(20, 25, 30, 0.08);
+            }
+
+            .settings-save-bar strong,
+            .settings-save-bar span {
+              display: block;
+            }
+
+            .settings-save-bar strong {
+              color: #202223;
+              font-size: 14px;
+            }
+
+            .settings-save-bar span {
+              margin-top: 4px;
+              color: #6d7175;
+              font-size: 12px;
+            }
+
+            @media (max-width: 760px) {
+              .settings-hero {
+                align-items: flex-start;
+                flex-direction: column;
+                padding: 24px 20px;
+              }
+
+              .settings-status {
+                align-self: flex-start;
+              }
+
+              .message-preview-grid {
+                grid-template-columns: 1fr;
+              }
+
+              .settings-save-bar {
+                align-items: stretch;
+                flex-direction: column;
+              }
+            }
+          `}
+        </style>
+      </Page>
     </AppProvider>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "10px 12px",
-  border: "1px solid #c9cccf",
-  borderRadius: "8px",
-  fontSize: "14px",
-  boxSizing: "border-box",
-};
