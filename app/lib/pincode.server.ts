@@ -14,6 +14,13 @@ export type PincodeInput = {
   source?: string | null;
 };
 
+type GetPaginatedPincodesInput = {
+  shopId: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+};
+
 function normalizePincode(value: string) {
   return value.trim();
 }
@@ -32,15 +39,37 @@ export async function getShopByDomain(shopDomain: string) {
   });
 }
 
-export async function getPincodesByShop(shopId: string, search?: string) {
+export async function getPincodesByShop(
+  shopId: string,
+  search?: string,
+) {
+  const normalizedSearch = search?.trim() || "";
+
   return prisma.pincode.findMany({
     where: {
       shopId,
-      ...(search
+      ...(normalizedSearch
         ? {
-            pincode: {
-              contains: search.trim(),
-            },
+            OR: [
+              {
+                pincode: {
+                  contains: normalizedSearch,
+                  mode: "insensitive",
+                },
+              },
+              {
+                city: {
+                  contains: normalizedSearch,
+                  mode: "insensitive",
+                },
+              },
+              {
+                state: {
+                  contains: normalizedSearch,
+                  mode: "insensitive",
+                },
+              },
+            ],
           }
         : {}),
     },
@@ -50,7 +79,86 @@ export async function getPincodesByShop(shopId: string, search?: string) {
   });
 }
 
-export async function getPincodeById(id: string, shopId: string) {
+export async function getPaginatedPincodes({
+  shopId,
+  search = "",
+  page = 1,
+  pageSize = 25,
+}: GetPaginatedPincodesInput) {
+  const safePage =
+    Number.isInteger(page) && page > 0 ? page : 1;
+
+  const safePageSize = Math.min(
+    100,
+    Math.max(
+      1,
+      Number.isInteger(pageSize) ? pageSize : 25,
+    ),
+  );
+
+  const normalizedSearch = search.trim();
+
+  const where = {
+    shopId,
+    ...(normalizedSearch
+      ? {
+          OR: [
+            {
+              pincode: {
+                contains: normalizedSearch,
+                mode: "insensitive" as const,
+              },
+            },
+            {
+              city: {
+                contains: normalizedSearch,
+                mode: "insensitive" as const,
+              },
+            },
+            {
+              state: {
+                contains: normalizedSearch,
+                mode: "insensitive" as const,
+              },
+            },
+          ],
+        }
+      : {}),
+  };
+
+  const totalCount = await prisma.pincode.count({
+    where,
+  });
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(totalCount / safePageSize),
+  );
+
+  const currentPage = Math.min(safePage, totalPages);
+
+  const pincodes = await prisma.pincode.findMany({
+    where,
+    orderBy: {
+      pincode: "asc",
+    },
+    skip: (currentPage - 1) * safePageSize,
+    take: safePageSize,
+  });
+
+  return {
+    pincodes,
+    totalCount,
+    totalPages,
+    currentPage,
+    pageSize: safePageSize,
+  };
+}
+
+export async function getPincodeById(
+  id: string,
+  shopId: string,
+) {
   return prisma.pincode.findFirst({
     where: {
       id,
@@ -105,7 +213,9 @@ export async function updatePincode(
   });
 }
 
-export async function upsertSinglePincode(input: PincodeInput) {
+export async function upsertSinglePincode(
+  input: PincodeInput,
+) {
   const pincode = normalizePincode(input.pincode);
 
   return prisma.pincode.upsert({
@@ -140,7 +250,10 @@ export async function upsertSinglePincode(input: PincodeInput) {
   });
 }
 
-export async function deletePincode(id: string, shopId: string) {
+export async function deletePincode(
+  id: string,
+  shopId: string,
+) {
   const existing = await getPincodeById(id, shopId);
 
   if (!existing) {
@@ -152,7 +265,10 @@ export async function deletePincode(id: string, shopId: string) {
   });
 }
 
-export async function bulkDeletePincodes(ids: string[], shopId: string) {
+export async function bulkDeletePincodes(
+  ids: string[],
+  shopId: string,
+) {
   if (!ids.length) {
     return { count: 0 };
   }
@@ -167,7 +283,10 @@ export async function bulkDeletePincodes(ids: string[], shopId: string) {
   });
 }
 
-export async function bulkUpsertPincodes(shopId: string, rows: ParsedCsvRow[]) {
+export async function bulkUpsertPincodes(
+  shopId: string,
+  rows: ParsedCsvRow[],
+) {
   if (!rows.length) {
     return { insertedOrUpdated: 0 };
   }
@@ -187,7 +306,8 @@ export async function bulkUpsertPincodes(shopId: string, rows: ParsedCsvRow[]) {
           country: row.country ?? null,
           codAvailable: row.codAvailable,
           prepaidAvailable: row.prepaidAvailable,
-          estDeliveryDays: row.estDeliveryDays ?? null,
+          estDeliveryDays:
+            row.estDeliveryDays ?? null,
           isActive: row.isActive,
           source: row.source,
         },
@@ -199,7 +319,8 @@ export async function bulkUpsertPincodes(shopId: string, rows: ParsedCsvRow[]) {
           country: row.country ?? null,
           codAvailable: row.codAvailable,
           prepaidAvailable: row.prepaidAvailable,
-          estDeliveryDays: row.estDeliveryDays ?? null,
+          estDeliveryDays:
+            row.estDeliveryDays ?? null,
           isActive: row.isActive,
           source: row.source,
         },
@@ -207,5 +328,7 @@ export async function bulkUpsertPincodes(shopId: string, rows: ParsedCsvRow[]) {
     ),
   );
 
-  return { insertedOrUpdated: rows.length };
+  return {
+    insertedOrUpdated: rows.length,
+  };
 }
