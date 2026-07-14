@@ -3,11 +3,11 @@ import { authenticate } from "../shopify.server";
 import db from "../db.server";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { shop, session, topic } = await authenticate.webhook(request);
+  try {
+    const { shop, topic } = await authenticate.webhook(request);
 
-  console.log(`Webhook received: ${topic} from ${shop}`);
+    console.log(`Webhook received: ${topic} from ${shop}`);
 
-  if (session) {
     await db.$transaction([
       db.session.deleteMany({
         where: {
@@ -22,8 +22,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }),
     ]);
 
-    console.log(`Deleted all data for ${shop}`);
-  }
+    console.log(`Deleted all stored data for ${shop}`);
 
-  return new Response();
+    return new Response(null, {
+      status: 200,
+    });
+  } catch (error) {
+    console.error("App uninstall webhook failed:", error);
+
+    return new Response(null, {
+      status: 500,
+    });
+  }
 };

@@ -2,6 +2,20 @@ import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 
+export const loader = async () => {
+  return Response.json(
+    {
+      message: "Method not allowed. This endpoint accepts Shopify webhook POST requests only.",
+    },
+    {
+      status: 405,
+      headers: {
+        Allow: "POST",
+      },
+    },
+  );
+};
+
 export const action = async ({ request }: ActionFunctionArgs) => {
   try {
     const { topic, shop } = await authenticate.webhook(request);
