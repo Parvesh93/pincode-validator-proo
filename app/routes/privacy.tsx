@@ -22,7 +22,7 @@ export default function PrivacyPolicy() {
 
           <Text as="p" variant="bodyMd">
             This Privacy Policy explains how PP DESIGN AND TECH
-            ("we", "our", "us") collects, uses, stores and protects
+            (&quot;we&quot;, &quot;our&quot;, &quot;us&quot;) collects, uses, stores and protects
             information when merchants use the Pincode Validator Pro
             Shopify application.
           </Text>
