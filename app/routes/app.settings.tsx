@@ -1,6 +1,7 @@
 import "@shopify/polaris/build/esm/styles.css";
 
-import type { CSSProperties } from "react";
+import { useState } from "react";
+
 import {
   AppProvider,
   Banner,
@@ -43,11 +44,18 @@ function toBool(value: FormDataEntryValue | null) {
   return value === "on" || value === "true";
 }
 
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader({
+  request,
+}: LoaderFunctionArgs) {
   const { session } = await authenticate.admin(request);
 
-  const shop = await getOrCreateShopByDomain(session.shop);
-  const settings = await getSettingsByShopId(shop.id);
+  const shop = await getOrCreateShopByDomain(
+    session.shop,
+  );
+
+  const settings = await getSettingsByShopId(
+    shop.id,
+  );
 
   return data({
     settings: {
@@ -83,10 +91,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
   });
 }
 
-export async function action({ request }: ActionFunctionArgs) {
+export async function action({
+  request,
+}: ActionFunctionArgs) {
   const { session } = await authenticate.admin(request);
 
-  const shop = await getOrCreateShopByDomain(session.shop);
+  const shop = await getOrCreateShopByDomain(
+    session.shop,
+  );
+
   const formData = await request.formData();
 
   try {
@@ -207,7 +220,10 @@ export async function action({ request }: ActionFunctionArgs) {
       success: "Settings saved successfully.",
     });
   } catch (error: unknown) {
-    console.error("Failed to save settings:", error);
+    console.error(
+      "Failed to save settings:",
+      error,
+    );
 
     return data<ActionData>(
       {
@@ -222,15 +238,83 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function SettingsPage() {
-  const { settings } = useLoaderData<typeof loader>();
+  const { settings } =
+    useLoaderData<typeof loader>();
 
   const actionData =
-    useActionData<typeof action>() as ActionData | undefined;
+    useActionData<typeof action>() as
+      | ActionData
+      | undefined;
 
   const navigation = useNavigation();
 
   const isSubmitting =
     navigation.state === "submitting";
+
+  const [
+    requireValidation,
+    setRequireValidation,
+  ] = useState(
+    settings.requireValidation,
+  );
+
+  const [
+    restrictAddToCart,
+    setRestrictAddToCart,
+  ] = useState(
+    settings.restrictAddToCart,
+  );
+
+  const [
+    restrictBuyNow,
+    setRestrictBuyNow,
+  ] = useState(
+    settings.restrictBuyNow,
+  );
+
+  const [
+    enableEmbed,
+    setEnableEmbed,
+  ] = useState(
+    settings.enableEmbed,
+  );
+
+  const [
+    enableBlock,
+    setEnableBlock,
+  ] = useState(
+    settings.enableBlock,
+  );
+
+  const [
+    successMessage,
+    setSuccessMessage,
+  ] = useState(
+    settings.successMessage,
+  );
+
+  const [
+    failureMessage,
+    setFailureMessage,
+  ] = useState(
+    settings.failureMessage,
+  );
+
+  const [
+    defaultCountry,
+    setDefaultCountry,
+  ] = useState(
+    settings.defaultCountry || "",
+  );
+
+  const [
+    rememberPincodeDays,
+    setRememberPincodeDays,
+  ] = useState(
+    String(
+      settings.rememberPincodeDays,
+    ),
+  );
 
   return (
     <AppProvider i18n={{}}>
@@ -249,7 +333,9 @@ export default function SettingsPage() {
                 tone="critical"
                 title="Settings could not be saved"
               >
-                <p>{actionData.error}</p>
+                <p>
+                  {actionData.error}
+                </p>
               </Banner>
             </Layout.Section>
           ) : null}
@@ -260,7 +346,9 @@ export default function SettingsPage() {
                 tone="success"
                 title="Settings updated"
               >
-                <p>{actionData.success}</p>
+                <p>
+                  {actionData.success}
+                </p>
               </Banner>
             </Layout.Section>
           ) : null}
@@ -278,15 +366,16 @@ export default function SettingsPage() {
 
                 <p>
                   Configure customer validation rules,
-                  storefront messages and how long a verified
-                  pincode should remain remembered.
+                  storefront messages and how long a
+                  verified pincode should remain
+                  remembered.
                 </p>
               </div>
 
               <div className="settings-status">
                 <span
                   className={
-                    settings.requireValidation
+                    requireValidation
                       ? "settings-status-dot settings-status-dot-active"
                       : "settings-status-dot"
                   }
@@ -294,7 +383,7 @@ export default function SettingsPage() {
 
                 <span>
                   Validation{" "}
-                  {settings.requireValidation
+                  {requireValidation
                     ? "enabled"
                     : "disabled"}
                 </span>
@@ -308,15 +397,22 @@ export default function SettingsPage() {
                 <Card>
                   <BlockStack gap="500">
                     <div>
-                      <Text as="h2" variant="headingLg">
+                      <Text
+                        as="h2"
+                        variant="headingLg"
+                      >
                         Validation rules
                       </Text>
 
                       <Box paddingBlockStart="150">
-                        <Text as="p" tone="subdued">
-                          Choose when customers must validate
-                          their pincode and which purchase
-                          buttons should be restricted.
+                        <Text
+                          as="p"
+                          tone="subdued"
+                        >
+                          Choose when customers must
+                          validate their pincode and
+                          which purchase buttons should
+                          be restricted.
                         </Text>
                       </Box>
                     </div>
@@ -324,7 +420,7 @@ export default function SettingsPage() {
                     <div className="settings-option-grid">
                       <div
                         className={
-                          settings.requireValidation
+                          requireValidation
                             ? "settings-option-card settings-option-card-active"
                             : "settings-option-card"
                         }
@@ -332,8 +428,11 @@ export default function SettingsPage() {
                         <Checkbox
                           label="Require pincode validation"
                           name="requireValidation"
-                          defaultChecked={
-                            settings.requireValidation
+                          checked={
+                            requireValidation
+                          }
+                          onChange={
+                            setRequireValidation
                           }
                           helpText="Customers must check delivery availability before continuing."
                         />
@@ -341,7 +440,7 @@ export default function SettingsPage() {
 
                       <div
                         className={
-                          settings.restrictAddToCart
+                          restrictAddToCart
                             ? "settings-option-card settings-option-card-active"
                             : "settings-option-card"
                         }
@@ -349,8 +448,11 @@ export default function SettingsPage() {
                         <Checkbox
                           label="Restrict Add to Cart"
                           name="restrictAddToCart"
-                          defaultChecked={
-                            settings.restrictAddToCart
+                          checked={
+                            restrictAddToCart
+                          }
+                          onChange={
+                            setRestrictAddToCart
                           }
                           helpText="Disable visible Add to Cart buttons until validation succeeds."
                         />
@@ -358,7 +460,7 @@ export default function SettingsPage() {
 
                       <div
                         className={
-                          settings.restrictBuyNow
+                          restrictBuyNow
                             ? "settings-option-card settings-option-card-active"
                             : "settings-option-card"
                         }
@@ -366,8 +468,11 @@ export default function SettingsPage() {
                         <Checkbox
                           label="Restrict Buy Now"
                           name="restrictBuyNow"
-                          defaultChecked={
-                            settings.restrictBuyNow
+                          checked={
+                            restrictBuyNow
+                          }
+                          onChange={
+                            setRestrictBuyNow
                           }
                           helpText="Disable visible dynamic checkout buttons until validation succeeds."
                         />
@@ -381,54 +486,70 @@ export default function SettingsPage() {
                 <Card>
                   <BlockStack gap="400">
                     <div>
-                      <Text as="h2" variant="headingMd">
+                      <Text
+                        as="h2"
+                        variant="headingMd"
+                      >
                         Current behavior
                       </Text>
 
                       <Box paddingBlockStart="150">
-                        <Text as="p" tone="subdued">
-                          A summary of the rules currently
-                          configured.
+                        <Text
+                          as="p"
+                          tone="subdued"
+                        >
+                          A live summary of the
+                          currently selected rules.
                         </Text>
                       </Box>
                     </div>
 
                     <div className="settings-summary-list">
                       <div className="settings-summary-row">
-                        <span>Validation</span>
+                        <span>
+                          Validation
+                        </span>
 
                         <strong>
-                          {settings.requireValidation
+                          {requireValidation
                             ? "Required"
                             : "Optional"}
                         </strong>
                       </div>
 
                       <div className="settings-summary-row">
-                        <span>Add to Cart</span>
+                        <span>
+                          Add to Cart
+                        </span>
 
                         <strong>
-                          {settings.restrictAddToCart
+                          {restrictAddToCart
                             ? "Restricted"
                             : "Allowed"}
                         </strong>
                       </div>
 
                       <div className="settings-summary-row">
-                        <span>Buy Now</span>
+                        <span>
+                          Buy Now
+                        </span>
 
                         <strong>
-                          {settings.restrictBuyNow
+                          {restrictBuyNow
                             ? "Restricted"
                             : "Allowed"}
                         </strong>
                       </div>
 
                       <div className="settings-summary-row">
-                        <span>Remembered for</span>
+                        <span>
+                          Remembered for
+                        </span>
 
                         <strong>
-                          {settings.rememberPincodeDays} days
+                          {rememberPincodeDays ||
+                            "0"}{" "}
+                          days
                         </strong>
                       </div>
                     </div>
@@ -440,23 +561,29 @@ export default function SettingsPage() {
                 <Card>
                   <BlockStack gap="500">
                     <div>
-                      <Text as="h2" variant="headingLg">
+                      <Text
+                        as="h2"
+                        variant="headingLg"
+                      >
                         Theme integration
                       </Text>
 
                       <Box paddingBlockStart="150">
-                        <Text as="p" tone="subdued">
-                          Control which storefront integration
-                          methods are available to the merchant.
+                        <Text
+                          as="p"
+                          tone="subdued"
+                        >
+                          Control which storefront
+                          integration methods are
+                          available to the merchant.
                         </Text>
                       </Box>
                     </div>
 
                     <div className="settings-option-grid settings-option-grid-two">
-                      <label
-                        htmlFor="enable-embed-checkbox"
+                      <div
                         className={
-                          settings.enableEmbed
+                          enableEmbed
                             ? "settings-option-card settings-option-card-active"
                             : "settings-option-card"
                         }
@@ -465,17 +592,19 @@ export default function SettingsPage() {
                           id="enable-embed-checkbox"
                           label="Enable app embed"
                           name="enableEmbed"
-                          defaultChecked={
-                            settings.enableEmbed
+                          checked={
+                            enableEmbed
+                          }
+                          onChange={
+                            setEnableEmbed
                           }
                           helpText="Allow global storefront integration through the app embed."
                         />
-                      </label>
+                      </div>
 
-                      <label
-                        htmlFor="enable-block-checkbox"
+                      <div
                         className={
-                          settings.enableBlock
+                          enableBlock
                             ? "settings-option-card settings-option-card-active"
                             : "settings-option-card"
                         }
@@ -484,12 +613,15 @@ export default function SettingsPage() {
                           id="enable-block-checkbox"
                           label="Enable theme block"
                           name="enableBlock"
-                          defaultChecked={
-                            settings.enableBlock
+                          checked={
+                            enableBlock
+                          }
+                          onChange={
+                            setEnableBlock
                           }
                           helpText="Allow merchants to add the pincode validator as a product-page block."
                         />
-                      </label>
+                      </div>
                     </div>
 
                     <Banner
@@ -497,9 +629,10 @@ export default function SettingsPage() {
                       title="Theme editor setup"
                     >
                       <p>
-                        The app block or app embed must still
-                        be enabled from Online Store → Themes
-                        → Customize.
+                        The app block or app embed
+                        must still be enabled from
+                        Online Store → Themes →
+                        Customize.
                       </p>
                     </Banner>
                   </BlockStack>
@@ -510,15 +643,21 @@ export default function SettingsPage() {
                 <Card>
                   <BlockStack gap="500">
                     <div>
-                      <Text as="h2" variant="headingLg">
+                      <Text
+                        as="h2"
+                        variant="headingLg"
+                      >
                         Customer messages
                       </Text>
 
                       <Box paddingBlockStart="150">
-                        <Text as="p" tone="subdued">
-                          Customize the messages shown after a
-                          customer checks their delivery
-                          pincode.
+                        <Text
+                          as="p"
+                          tone="subdued"
+                        >
+                          Customize the messages shown
+                          after a customer checks their
+                          delivery pincode.
                         </Text>
                       </Box>
                     </div>
@@ -530,51 +669,59 @@ export default function SettingsPage() {
                       }}
                       gap="400"
                     >
-                      <div>
-                        <TextField
-                          label="Success message"
-                          name="successMessage"
-                          defaultValue={
-                            settings.successMessage
-                          }
-                          autoComplete="off"
-                          multiline={3}
-                          maxLength={250}
-                          showCharacterCount
-                          helpText="Shown when delivery is available."
-                        />
-                      </div>
+                      <TextField
+                        label="Success message"
+                        name="successMessage"
+                        value={
+                          successMessage
+                        }
+                        onChange={
+                          setSuccessMessage
+                        }
+                        autoComplete="off"
+                        multiline={3}
+                        maxLength={250}
+                        showCharacterCount
+                        helpText="Shown when delivery is available."
+                      />
 
-                      <div>
-                        <TextField
-                          label="Failure message"
-                          name="failureMessage"
-                          defaultValue={
-                            settings.failureMessage
-                          }
-                          autoComplete="off"
-                          multiline={3}
-                          maxLength={250}
-                          showCharacterCount
-                          helpText="Shown when delivery is unavailable."
-                        />
-                      </div>
+                      <TextField
+                        label="Failure message"
+                        name="failureMessage"
+                        value={
+                          failureMessage
+                        }
+                        onChange={
+                          setFailureMessage
+                        }
+                        autoComplete="off"
+                        multiline={3}
+                        maxLength={250}
+                        showCharacterCount
+                        helpText="Shown when delivery is unavailable."
+                      />
                     </InlineGrid>
 
                     <div className="message-preview-grid">
                       <div className="message-preview message-preview-success">
-                        <span>Success preview</span>
+                        <span>
+                          Success preview
+                        </span>
 
                         <p>
-                          {settings.successMessage}
+                          {successMessage ||
+                            "Your success message will appear here."}
                         </p>
                       </div>
 
                       <div className="message-preview message-preview-error">
-                        <span>Failure preview</span>
+                        <span>
+                          Failure preview
+                        </span>
 
                         <p>
-                          {settings.failureMessage}
+                          {failureMessage ||
+                            "Your failure message will appear here."}
                         </p>
                       </div>
                     </div>
@@ -586,15 +733,22 @@ export default function SettingsPage() {
                 <Card>
                   <BlockStack gap="500">
                     <div>
-                      <Text as="h2" variant="headingLg">
+                      <Text
+                        as="h2"
+                        variant="headingLg"
+                      >
                         Defaults and memory
                       </Text>
 
                       <Box paddingBlockStart="150">
-                        <Text as="p" tone="subdued">
-                          Define the default market and how
-                          long a successful validation should
-                          be remembered.
+                        <Text
+                          as="p"
+                          tone="subdued"
+                        >
+                          Define the default market and
+                          how long a successful
+                          validation should be
+                          remembered.
                         </Text>
                       </Box>
                     </div>
@@ -609,8 +763,11 @@ export default function SettingsPage() {
                       <TextField
                         label="Default country"
                         name="defaultCountry"
-                        defaultValue={
-                          settings.defaultCountry || ""
+                        value={
+                          defaultCountry
+                        }
+                        onChange={
+                          setDefaultCountry
                         }
                         autoComplete="country-name"
                         helpText="Used when imported or manually created records do not specify a country."
@@ -623,9 +780,12 @@ export default function SettingsPage() {
                         min={1}
                         max={365}
                         step={1}
-                        defaultValue={String(
-                          settings.rememberPincodeDays,
-                        )}
+                        value={
+                          rememberPincodeDays
+                        }
+                        onChange={
+                          setRememberPincodeDays
+                        }
                         autoComplete="off"
                         suffix="days"
                         helpText="Choose a value between 1 and 365 days."
@@ -638,18 +798,22 @@ export default function SettingsPage() {
               <Layout.Section>
                 <div className="settings-save-bar">
                   <div>
-                    <strong>Save storefront settings</strong>
+                    <strong>
+                      Save storefront settings
+                    </strong>
 
                     <span>
-                      Changes will apply to future storefront
-                      validation requests.
+                      Changes will apply to future
+                      storefront validation requests.
                     </span>
                   </div>
 
                   <InlineStack gap="300">
                     <Button
                       url="/app"
-                      disabled={isSubmitting}
+                      disabled={
+                        isSubmitting
+                      }
                     >
                       Cancel
                     </Button>
@@ -657,8 +821,12 @@ export default function SettingsPage() {
                     <Button
                       submit
                       variant="primary"
-                      loading={isSubmitting}
-                      disabled={isSubmitting}
+                      loading={
+                        isSubmitting
+                      }
+                      disabled={
+                        isSubmitting
+                      }
                     >
                       Save settings
                     </Button>
@@ -689,7 +857,8 @@ export default function SettingsPage() {
                 );
               color: #ffffff;
               box-shadow:
-                0 12px 30px rgba(17, 24, 39, 0.16);
+                0 12px 30px
+                rgba(17, 24, 39, 0.16);
             }
 
             .settings-hero > div {
@@ -719,7 +888,8 @@ export default function SettingsPage() {
             .settings-hero p {
               max-width: 680px;
               margin: 0;
-              color: rgba(255, 255, 255, 0.78);
+              color:
+                rgba(255, 255, 255, 0.78);
               font-size: 14px;
               line-height: 1.7;
             }
@@ -758,13 +928,19 @@ export default function SettingsPage() {
             .settings-option-grid {
               display: grid;
               grid-template-columns:
-                repeat(auto-fit, minmax(250px, 1fr));
+                repeat(
+                  auto-fit,
+                  minmax(250px, 1fr)
+                );
               gap: 14px;
             }
 
             .settings-option-grid-two {
               grid-template-columns:
-                repeat(auto-fit, minmax(280px, 1fr));
+                repeat(
+                  auto-fit,
+                  minmax(280px, 1fr)
+                );
             }
 
             .settings-option-card {
@@ -773,7 +949,6 @@ export default function SettingsPage() {
               border: 1px solid #e3e5e7;
               border-radius: 13px;
               background: #ffffff;
-              cursor: pointer;
               transition:
                 border-color 0.15s ease,
                 background 0.15s ease,
@@ -794,7 +969,6 @@ export default function SettingsPage() {
 
             .settings-summary-list {
               display: grid;
-              gap: 0;
             }
 
             .settings-summary-row {
@@ -803,7 +977,8 @@ export default function SettingsPage() {
               justify-content: space-between;
               gap: 14px;
               padding: 13px 0;
-              border-bottom: 1px solid #ededed;
+              border-bottom:
+                1px solid #ededed;
             }
 
             .settings-summary-row:last-child {
@@ -846,6 +1021,7 @@ export default function SettingsPage() {
               margin: 8px 0 0;
               font-size: 13px;
               line-height: 1.55;
+              overflow-wrap: anywhere;
             }
 
             .message-preview-success {
