@@ -1,4 +1,3 @@
-
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
 import {
   Link,
@@ -9,6 +8,7 @@ import {
 
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
+import { NavMenu } from "@shopify/app-bridge-react";
 
 import { authenticate } from "../shopify.server";
 
@@ -25,16 +25,8 @@ export default function App() {
 
   return (
     <AppProvider embedded apiKey={apiKey}>
-      <nav
-        style={{
-          display: "flex",
-          gap: "1rem",
-          padding: "1rem 1.5rem",
-          borderBottom: "1px solid #e1e3e5",
-          background: "#ffffff",
-        }}
-      >
-        <Link to="/app">
+      <NavMenu>
+        <Link to="/app" rel="home">
           Dashboard
         </Link>
 
@@ -49,7 +41,7 @@ export default function App() {
         <Link to="/app/settings">
           Settings
         </Link>
-      </nav>
+      </NavMenu>
 
       <Outlet />
     </AppProvider>
@@ -63,4 +55,3 @@ export function ErrorBoundary() {
 export const headers: HeadersFunction = (headersArgs) => {
   return boundary.headers(headersArgs);
 };
-
