@@ -1,206 +1,293 @@
-// import type { ActionFunctionArgs } from "react-router";
-// import { authenticate } from "../shopify.server";
-// import db from "../db.server";
-
-// export async function action({ request }: ActionFunctionArgs) {
-//   try {
-//     const { session } = await authenticate.public.appProxy(request);
-//     const body = await request.json();
-//     const pincode = String(body?.pincode || "").trim();
-
-//     if (!session?.shop) {
-//       return Response.json({ valid: false, message: "Shop not found" }, { status: 400 });
-//     }
-
-//     if (!pincode) {
-//       return Response.json({ valid: false, message: "Pincode is required" }, { status: 400 });
-//     }
-
-//     const shopRecord = await db.shop.findUnique({
-//       where: { shopDomain: session.shop },
-//       include: { settings: true },
-//     });
-
-//     if (!shopRecord) {
-//       return Response.json({ valid: false, message: "Shop record not found" }, { status: 404 });
-//     }
-
-//     const record = await db.pincode.findUnique({
-//       where: {
-//         shopId_pincode: {
-//           shopId: shopRecord.id,
-//           pincode,
-//         },
-//       },
-//     });
-
-//     if (!record || !record.isActive) {
-//       return Response.json({
-//         valid: false,
-//         message: shopRecord.settings?.failureMessage || "Delivery not available for this pincode",
-//       });
-//     }
-
-//     return Response.json({
-//       valid: true,
-//       message: shopRecord.settings?.successMessage || "Delivery available",
-//       pincode: record.pincode,
-//       codAvailable: record.codAvailable,
-//       prepaidAvailable: record.prepaidAvailable,
-//       estDeliveryDays: record.estDeliveryDays,
-//     });
-//   } catch (error: unknown) {
-//     const errorMessage = error instanceof Error ? error.message : "Validation failed";
-//     return Response.json(
-//       { valid: false, message: errorMessage },
-//       { status: 500 },
-//     );
-//   }
-// }
-
-
-
 import type { ActionFunctionArgs } from "react-router";
-import { authenticate } from "../shopify.server";
-import db from "../db.server";
 
-export async function action({ request }: ActionFunctionArgs) {
+import db from "../db.server";
+import { authenticate } from "../shopify.server";
+
+type StorefrontSettings = {
+  restrictAddToCart: boolean;
+  restrictBuyNow: boolean;
+  requireValidation: boolean;
+  enableEmbed: boolean;
+  enableBlock: boolean;
+  rememberPincodeDays: number;
+  successMessage: string;
+  failureMessage: string;
+  defaultCountry: string;
+};
+
+function getStorefrontSettings(
+  settings:
+    | {
+        restrictAddToCart?: boolean | null;
+        restrictBuyNow?: boolean | null;
+        requireValidation?: boolean | null;
+        enableEmbed?: boolean | null;
+        enableBlock?: boolean | null;
+        rememberPincodeDays?: number | null;
+        successMessage?: string | null;
+        failureMessage?: string | null;
+        defaultCountry?: string | null;
+      }
+    | null
+    | undefined,
+): StorefrontSettings {
+  return {
+    restrictAddToCart:
+      settings?.restrictAddToCart ?? true,
+
+    restrictBuyNow:
+      settings?.restrictBuyNow ?? true,
+
+    requireValidation:
+      settings?.requireValidation ?? true,
+
+    enableEmbed:
+      settings?.enableEmbed ?? true,
+
+    enableBlock:
+      settings?.enableBlock ?? true,
+
+    rememberPincodeDays:
+      settings?.rememberPincodeDays ?? 7,
+
+    successMessage:
+      settings?.successMessage?.trim() ||
+      "Delivery available for this pincode.",
+
+    failureMessage:
+      settings?.failureMessage?.trim() ||
+      "Sorry, delivery is not available for this pincode.",
+
+    defaultCountry:
+      settings?.defaultCountry?.trim() ||
+      "India",
+  };
+}
+
+function unavailableResponse({
+  pincode,
+  message,
+  settings,
+  city = null,
+  state = null,
+  country,
+}: {
+  pincode: string;
+  message: string;
+  settings: StorefrontSettings;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+}) {
+  return {
+    valid: false,
+    available: false,
+    pincode,
+    message,
+    codAvailable: false,
+    prepaidAvailable: false,
+    estDeliveryDays: null,
+    city,
+    state,
+    country:
+      country ||
+      settings.defaultCountry,
+    settings,
+  };
+}
+
+export async function action({
+  request,
+}: ActionFunctionArgs) {
   try {
-    const { session } = await authenticate.public.appProxy(request);
-    const body = await request.json();
-    const pincode = String(body?.pincode || "").trim();
+    const { session } =
+      await authenticate.public.appProxy(
+        request,
+      );
 
     if (!session?.shop) {
       return Response.json(
         {
           valid: false,
+          available: false,
           message: "Shop not found",
           settings: null,
         },
-        { status: 400 },
+        {
+          status: 400,
+        },
       );
     }
 
-    const shopRecord = await db.shop.findUnique({
-      where: { shopDomain: session.shop },
-      include: { settings: true },
-    });
+    let body: unknown;
+
+    try {
+      body = await request.json();
+    } catch {
+      return Response.json(
+        {
+          valid: false,
+          available: false,
+          message:
+            "Invalid request body",
+          settings: null,
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    const pincode =
+      typeof body === "object" &&
+      body !== null &&
+      "pincode" in body
+        ? String(
+            (
+              body as {
+                pincode?: unknown;
+              }
+            ).pincode ?? "",
+          ).trim()
+        : "";
+
+    const shopRecord =
+      await db.shop.findUnique({
+        where: {
+          shopDomain:
+            session.shop,
+        },
+        include: {
+          settings: true,
+        },
+      });
 
     if (!shopRecord) {
       return Response.json(
         {
           valid: false,
-          message: "Shop record not found",
+          available: false,
+          message:
+            "Shop record not found",
           settings: null,
         },
-        { status: 404 },
+        {
+          status: 404,
+        },
       );
     }
 
-    const settings = {
-      restrictAddToCart: shopRecord.settings?.restrictAddToCart ?? true,
-      restrictBuyNow: shopRecord.settings?.restrictBuyNow ?? true,
-      requireValidation: shopRecord.settings?.requireValidation ?? true,
-      enableEmbed: shopRecord.settings?.enableEmbed ?? true,
-      enableBlock: shopRecord.settings?.enableBlock ?? true,
-      rememberPincodeDays: shopRecord.settings?.rememberPincodeDays ?? 7,
-      successMessage:
-        shopRecord.settings?.successMessage ||
-        "Delivery available for this pincode.",
-      failureMessage:
-        shopRecord.settings?.failureMessage ||
-        "Sorry, delivery is not available for this pincode.",
-      defaultCountry: shopRecord.settings?.defaultCountry || "India",
-    };
+    const settings =
+      getStorefrontSettings(
+        shopRecord.settings,
+      );
 
     if (!pincode) {
       return Response.json(
-        {
-          valid: false,
-          available: false,
+        unavailableResponse({
           pincode: "",
-          message: "Pincode is required",
-          codAvailable: false,
-          prepaidAvailable: false,
-          estDeliveryDays: null,
-          city: null,
-          state: null,
-          country: settings.defaultCountry,
+          message:
+            "Pincode is required",
           settings,
-        },
-        { status: 400 },
-      );
-    }
-
-    if (!/^[0-9]{6}$/.test(pincode)) {
-      return Response.json(
+          country:
+            settings.defaultCountry,
+        }),
         {
-          valid: false,
-          available: false,
-          pincode,
-          message: "Please enter a valid 6-digit pincode",
-          codAvailable: false,
-          prepaidAvailable: false,
-          estDeliveryDays: null,
-          city: null,
-          state: null,
-          country: settings.defaultCountry,
-          settings,
+          status: 400,
         },
-        { status: 400 },
       );
     }
 
-    const record = await db.pincode.findUnique({
-      where: {
-        shopId_pincode: {
-          shopId: shopRecord.id,
-          pincode,
-        },
-      },
-    });
-
-    if (!record || !record.isActive || !record.prepaidAvailable) {
-      return Response.json({
-        valid: false,
-        available: false,
+    if (
+      !/^[1-9][0-9]{5}$/.test(
         pincode,
-        message: settings.failureMessage,
-        codAvailable: false,
-        prepaidAvailable: false,
-        estDeliveryDays: null,
-        city: record?.city ?? null,
-        state: record?.state ?? null,
-        country: record?.country ?? settings.defaultCountry,
-        settings,
+      )
+    ) {
+      return Response.json(
+        unavailableResponse({
+          pincode,
+          message:
+            "Please enter a valid 6-digit Indian pincode",
+          settings,
+          country:
+            settings.defaultCountry,
+        }),
+        {
+          status: 400,
+        },
+      );
+    }
+
+    const record =
+      await db.pincode.findUnique({
+        where: {
+          shopId_pincode: {
+            shopId:
+              shopRecord.id,
+            pincode,
+          },
+        },
       });
+
+    if (
+      !record ||
+      !record.isActive ||
+      !record.prepaidAvailable
+    ) {
+      return Response.json(
+        unavailableResponse({
+          pincode,
+          message:
+            settings.failureMessage,
+          settings,
+          city:
+            record?.city ?? null,
+          state:
+            record?.state ?? null,
+          country:
+            record?.country ??
+            settings.defaultCountry,
+        }),
+      );
     }
 
     return Response.json({
       valid: true,
       available: true,
-      pincode: record.pincode,
-      message: settings.successMessage,
-      codAvailable: record.codAvailable,
-      prepaidAvailable: record.prepaidAvailable,
-      estDeliveryDays: record.estDeliveryDays,
+      pincode:
+        record.pincode,
+      message:
+        settings.successMessage,
+      codAvailable:
+        record.codAvailable,
+      prepaidAvailable:
+        record.prepaidAvailable,
+      estDeliveryDays:
+        record.estDeliveryDays,
       city: record.city,
       state: record.state,
-      country: record.country ?? settings.defaultCountry,
+      country:
+        record.country ??
+        settings.defaultCountry,
       settings,
     });
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Validation failed";
+    console.error(
+      "Storefront pincode validation failed:",
+      error,
+    );
 
     return Response.json(
       {
         valid: false,
         available: false,
-        message: errorMessage,
+        message:
+          "Pincode validation could not be completed. Please try again.",
         settings: null,
       },
-      { status: 500 },
+      {
+        status: 500,
+      },
     );
   }
 }
