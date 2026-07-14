@@ -20,18 +20,18 @@
     'button[name="add"]',
     'input[name="add"]',
     '[name="add"][type="submit"]',
-    '[data-add-to-cart]',
-    '[data-product-atc]',
-    '[data-product-add-to-cart]',
-    '[data-add-to-cart-button]',
-    '.product-form__submit',
-    '.product-form__cart-submit',
-    '.product-form__add-button',
-    '.add-to-cart',
-    '.addtocart',
-    '.btn--add-to-cart',
-    '.product__add-to-cart',
-    '.product-add-to-cart',
+    "[data-add-to-cart]",
+    "[data-product-atc]",
+    "[data-product-add-to-cart]",
+    "[data-add-to-cart-button]",
+    ".product-form__submit",
+    ".product-form__cart-submit",
+    ".product-form__add-button",
+    ".add-to-cart",
+    ".addtocart",
+    ".btn--add-to-cart",
+    ".product__add-to-cart",
+    ".product-add-to-cart",
     '.product-form button[type="submit"]',
     'form[action*="/cart/add"] button[type="submit"]',
   ];
@@ -64,16 +64,28 @@
     'input[name="options"]',
     'select[name^="options"]',
     'input[name^="options"]',
-    '[data-option-selector] input',
-    '[data-option-selector] select',
+    "[data-option-selector] input",
+    "[data-option-selector] select",
     "variant-selects select",
     "variant-radios input",
   ];
 
   var instances = [];
+  var responseCache = new Map();
+  var pendingRequests = new Map();
+
   var globalObserver = null;
   var refreshTimer = null;
   var globalEventsAttached = false;
+  var restoreStarted = false;
+
+  var sharedState = {
+    pincode: "",
+    valid: false,
+    responseData: null,
+    loading: false,
+    settings: Object.assign({}, defaultSettings),
+  };
 
   function queryAll(selectors, root) {
     var searchRoot = root || document;
@@ -81,13 +93,17 @@
 
     selectors.forEach(function (selector) {
       try {
-        var matches = searchRoot.querySelectorAll(selector);
+        var matches =
+          searchRoot.querySelectorAll(selector);
 
-        Array.prototype.forEach.call(matches, function (node) {
-          if (nodes.indexOf(node) === -1) {
-            nodes.push(node);
-          }
-        });
+        Array.prototype.forEach.call(
+          matches,
+          function (node) {
+            if (nodes.indexOf(node) === -1) {
+              nodes.push(node);
+            }
+          },
+        );
       } catch (error) {
         console.warn(
           "Pincode Validator: invalid selector ignored.",
@@ -120,9 +136,51 @@
     return /^[1-9][0-9]{5}$/.test(pincode);
   }
 
+  function getActiveInstances() {
+    cleanupDisconnectedInstances();
+
+    return instances.filter(function (instance) {
+      return (
+        !instance.destroyed &&
+        document.documentElement.contains(
+          instance.widget,
+        )
+      );
+    });
+  }
+
+  function getPrimaryEndpoint() {
+    var activeInstances = getActiveInstances();
+
+    if (!activeInstances.length) {
+      return "";
+    }
+
+    return activeInstances[0].endpoint;
+  }
+
+  function mergeSharedSettings(settings) {
+    if (
+      !settings ||
+      typeof settings !== "object"
+    ) {
+      return;
+    }
+
+    sharedState.settings = Object.assign(
+      {},
+      defaultSettings,
+      sharedState.settings,
+      settings,
+    );
+  }
+
   function getSavedPincodeRecord() {
     try {
-      var raw = window.localStorage.getItem(STORAGE_KEY);
+      var raw =
+        window.localStorage.getItem(
+          STORAGE_KEY,
+        );
 
       if (!raw) {
         return null;
@@ -136,12 +194,21 @@
         !parsed.pincode ||
         !parsed.expiresAt
       ) {
-        window.localStorage.removeItem(STORAGE_KEY);
+        window.localStorage.removeItem(
+          STORAGE_KEY,
+        );
+
         return null;
       }
 
-      if (Date.now() > Number(parsed.expiresAt)) {
-        window.localStorage.removeItem(STORAGE_KEY);
+      if (
+        Date.now() >
+        Number(parsed.expiresAt)
+      ) {
+        window.localStorage.removeItem(
+          STORAGE_KEY,
+        );
+
         return null;
       }
 
@@ -151,16 +218,23 @@
     }
   }
 
-  function savePincode(pincode, rememberDays) {
+  function savePincode(
+    pincode,
+    rememberDays,
+  ) {
     try {
-      var parsedDays = Number(rememberDays);
+      var parsedDays =
+        Number(rememberDays);
+
       var days =
-        Number.isFinite(parsedDays) && parsedDays > 0
+        Number.isFinite(parsedDays) &&
+        parsedDays > 0
           ? parsedDays
           : 7;
 
       var expiresAt =
-        Date.now() + days * 24 * 60 * 60 * 1000;
+        Date.now() +
+        days * 24 * 60 * 60 * 1000;
 
       window.localStorage.setItem(
         STORAGE_KEY,
@@ -178,7 +252,9 @@
 
   function clearSavedPincode() {
     try {
-      window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(
+        STORAGE_KEY,
+      );
     } catch (error) {
       console.warn(
         "Pincode Validator: saved pincode could not be cleared.",
@@ -186,7 +262,9 @@
     }
   }
 
-  function findClosestProductContext(widget) {
+  function findClosestProductContext(
+    widget,
+  ) {
     var contextSelectors = [
       ".product",
       ".product__info-container",
@@ -203,13 +281,17 @@
       "[data-product-id]",
     ];
 
-    for (var index = 0; index < contextSelectors.length; index += 1) {
-      var closestContext = widget.closest(
+    for (
+      var index = 0;
+      index < contextSelectors.length;
+      index += 1
+    ) {
+      var context = widget.closest(
         contextSelectors[index],
       );
 
-      if (closestContext) {
-        return closestContext;
+      if (context) {
+        return context;
       }
     }
 
@@ -220,65 +302,90 @@
     return section || document;
   }
 
-  function findPurchaseControls(widget) {
-    var context = findClosestProductContext(widget);
+  function getRelevantProductContexts() {
+    var contexts = [];
 
-    var addToCartButtons = queryAll(
-      ADD_TO_CART_SELECTORS,
-      context,
+    getActiveInstances().forEach(
+      function (instance) {
+        var context =
+          findClosestProductContext(
+            instance.widget,
+          );
+
+        if (
+          contexts.indexOf(context) === -1
+        ) {
+          contexts.push(context);
+        }
+      },
     );
 
-    var buyNowButtons = queryAll(
-      BUY_NOW_BUTTON_SELECTORS,
-      context,
-    );
+    if (!contexts.length) {
+      contexts.push(document);
+    }
 
-    var buyNowContainers = queryAll(
-      BUY_NOW_CONTAINER_SELECTORS,
-      context,
-    );
+    return contexts;
+  }
 
-    if (
-      addToCartButtons.length === 0 &&
-      context !== document
-    ) {
-      addToCartButtons = queryAll(
+  function findPurchaseControls() {
+    var contexts =
+      getRelevantProductContexts();
+
+    var addToCartButtons = [];
+    var buyNowButtons = [];
+    var buyNowContainers = [];
+
+    contexts.forEach(function (context) {
+      queryAll(
         ADD_TO_CART_SELECTORS,
-        document,
-      );
-    }
+        context,
+      ).forEach(function (node) {
+        if (
+          addToCartButtons.indexOf(node) === -1
+        ) {
+          addToCartButtons.push(node);
+        }
+      });
 
-    if (
-      buyNowButtons.length === 0 &&
-      context !== document
-    ) {
-      buyNowButtons = queryAll(
+      queryAll(
         BUY_NOW_BUTTON_SELECTORS,
-        document,
-      );
-    }
+        context,
+      ).forEach(function (node) {
+        if (
+          buyNowButtons.indexOf(node) === -1
+        ) {
+          buyNowButtons.push(node);
+        }
+      });
 
-    if (
-      buyNowContainers.length === 0 &&
-      context !== document
-    ) {
-      buyNowContainers = queryAll(
+      queryAll(
         BUY_NOW_CONTAINER_SELECTORS,
-        document,
-      );
-    }
+        context,
+      ).forEach(function (node) {
+        if (
+          buyNowContainers.indexOf(node) ===
+          -1
+        ) {
+          buyNowContainers.push(node);
+        }
+      });
+    });
 
     return {
       addToCartButtons: addToCartButtons,
       buyNowButtons: buyNowButtons,
-      buyNowContainers: buyNowContainers,
+      buyNowContainers:
+        buyNowContainers,
     };
   }
 
-  function rememberOriginalButtonState(button) {
+  function rememberOriginalButtonState(
+    button,
+  ) {
     if (
-      button.getAttribute("data-pv-original-disabled") ===
-      null
+      button.getAttribute(
+        "data-pv-original-disabled",
+      ) === null
     ) {
       button.setAttribute(
         "data-pv-original-disabled",
@@ -287,15 +394,20 @@
     }
 
     if (
-      button.getAttribute("data-pv-original-aria-disabled") ===
-      null
+      button.getAttribute(
+        "data-pv-original-aria-disabled",
+      ) === null
     ) {
       var ariaDisabled =
-        button.getAttribute("aria-disabled");
+        button.getAttribute(
+          "aria-disabled",
+        );
 
       button.setAttribute(
         "data-pv-original-aria-disabled",
-        ariaDisabled === null ? "" : ariaDisabled,
+        ariaDisabled === null
+          ? ""
+          : ariaDisabled,
       );
     }
   }
@@ -308,8 +420,15 @@
     rememberOriginalButtonState(button);
 
     button.disabled = true;
-    button.setAttribute("aria-disabled", "true");
-    button.classList.add(BUTTON_DISABLED_CLASS);
+    button.setAttribute(
+      "aria-disabled",
+      "true",
+    );
+
+    button.classList.add(
+      BUTTON_DISABLED_CLASS,
+    );
+
     button.setAttribute(
       "data-pv-restricted",
       "true",
@@ -342,7 +461,9 @@
       originalAriaDisabled === null ||
       originalAriaDisabled === ""
     ) {
-      button.removeAttribute("aria-disabled");
+      button.removeAttribute(
+        "aria-disabled",
+      );
     } else {
       button.setAttribute(
         "aria-disabled",
@@ -359,7 +480,9 @@
     );
   }
 
-  function restrictBuyNowContainer(container) {
+  function restrictBuyNowContainer(
+    container,
+  ) {
     if (!container) {
       return;
     }
@@ -388,16 +511,20 @@
 
     container.style.pointerEvents = "none";
     container.style.opacity = "0.55";
+
     container.setAttribute(
       "aria-disabled",
       "true",
     );
+
     container.classList.add(
       BUTTON_DISABLED_CLASS,
     );
   }
 
-  function restoreBuyNowContainer(container) {
+  function restoreBuyNowContainer(
+    container,
+  ) {
     if (!container) {
       return;
     }
@@ -418,10 +545,67 @@
     container.style.opacity =
       opacity || "";
 
-    container.removeAttribute("aria-disabled");
+    container.removeAttribute(
+      "aria-disabled",
+    );
 
     container.classList.remove(
       BUTTON_DISABLED_CLASS,
+    );
+  }
+
+  function applySharedPurchaseState() {
+    var controls =
+      findPurchaseControls();
+
+    var settings =
+      sharedState.settings;
+
+    var shouldAllowPurchase =
+      !settings.requireValidation ||
+      sharedState.valid;
+
+    controls.addToCartButtons.forEach(
+      function (button) {
+        if (
+          shouldAllowPurchase ||
+          !settings.restrictAddToCart
+        ) {
+          restoreButton(button);
+        } else {
+          restrictButton(button);
+        }
+      },
+    );
+
+    controls.buyNowButtons.forEach(
+      function (button) {
+        if (
+          shouldAllowPurchase ||
+          !settings.restrictBuyNow
+        ) {
+          restoreButton(button);
+        } else {
+          restrictButton(button);
+        }
+      },
+    );
+
+    controls.buyNowContainers.forEach(
+      function (container) {
+        if (
+          shouldAllowPurchase ||
+          !settings.restrictBuyNow
+        ) {
+          restoreBuyNowContainer(
+            container,
+          );
+        } else {
+          restrictBuyNowContainer(
+            container,
+          );
+        }
+      },
     );
   }
 
@@ -430,13 +614,15 @@
       "[data-pincode-input]",
     );
 
-    var submitButton = widget.querySelector(
-      "[data-pincode-submit]",
-    );
+    var submitButton =
+      widget.querySelector(
+        "[data-pincode-submit]",
+      );
 
-    var buttonText = widget.querySelector(
-      "[data-pincode-button-text]",
-    );
+    var buttonText =
+      widget.querySelector(
+        "[data-pincode-button-text]",
+      );
 
     var spinner = widget.querySelector(
       "[data-pincode-spinner]",
@@ -447,7 +633,9 @@
     );
 
     var endpoint =
-      widget.getAttribute("data-endpoint");
+      widget.getAttribute(
+        "data-endpoint",
+      );
 
     if (
       !input ||
@@ -462,7 +650,7 @@
       return null;
     }
 
-    var instance = {
+    return {
       widget: widget,
       input: input,
       submitButton: submitButton,
@@ -470,22 +658,22 @@
       spinner: spinner,
       result: result,
       endpoint: endpoint,
-      settings: Object.assign(
-        {},
-        defaultSettings,
-      ),
-      validated: false,
-      validatedPincode: "",
-      requestController: null,
+      originalButtonLabel: buttonText
+        ? buttonText.textContent.trim()
+        : "Check",
       variantValue: "",
       destroyed: false,
+      suppressInputEvent: false,
     };
-
-    return instance;
   }
 
-  function setLoading(instance, loading) {
-    instance.submitButton.disabled = loading;
+  function setInstanceLoading(
+    instance,
+    loading,
+  ) {
+    instance.submitButton.disabled =
+      loading;
+
     instance.submitButton.setAttribute(
       "aria-busy",
       loading ? "true" : "false",
@@ -497,16 +685,31 @@
     );
 
     if (instance.spinner) {
-      instance.spinner.hidden = !loading;
+      instance.spinner.hidden =
+        !loading;
     }
 
     if (instance.buttonText) {
-      instance.buttonText.textContent = loading
-        ? "Checking..."
-        : instance.submitButton.getAttribute(
-            "data-original-label",
-          ) || "Check";
+      instance.buttonText.textContent =
+        loading
+          ? "Checking..."
+          : instance.originalButtonLabel;
     }
+  }
+
+  function setAllInstancesLoading(
+    loading,
+  ) {
+    sharedState.loading = loading;
+
+    getActiveInstances().forEach(
+      function (instance) {
+        setInstanceLoading(
+          instance,
+          loading,
+        );
+      },
+    );
   }
 
   function renderEmpty(instance) {
@@ -515,7 +718,10 @@
       "pv-widget__result";
   }
 
-  function renderError(instance, message) {
+  function renderError(
+    instance,
+    message,
+  ) {
     instance.result.textContent =
       message ||
       "Could not validate pincode.";
@@ -524,7 +730,10 @@
       "pv-widget__result pv-widget__result--error";
   }
 
-  function renderResult(instance, responseData) {
+  function renderResult(
+    instance,
+    responseData,
+  ) {
     var message =
       responseData.message || "";
 
@@ -548,8 +757,10 @@
       );
 
       if (
-        responseData.estDeliveryDays !== null &&
-        responseData.estDeliveryDays !== undefined
+        responseData.estDeliveryDays !==
+          null &&
+        responseData.estDeliveryDays !==
+          undefined
       ) {
         var deliveryDays = Number(
           responseData.estDeliveryDays,
@@ -610,261 +821,375 @@
         "pv-widget__result pv-widget__result--error";
     }
 
-    instance.result.innerHTML = html.join("");
+    instance.result.innerHTML =
+      html.join("");
   }
 
-  function mergeSettings(instance, settings) {
-    if (!settings || typeof settings !== "object") {
-      return;
-    }
-
-    instance.settings = Object.assign(
-      {},
-      defaultSettings,
-      settings,
-    );
-  }
-
-  function applyPurchaseState(instance) {
-    if (
-      instance.destroyed ||
-      !document.documentElement.contains(
-        instance.widget,
-      )
-    ) {
-      return;
-    }
-
-    var controls = findPurchaseControls(
-      instance.widget,
-    );
-
-    var shouldAllowPurchase =
-      !instance.settings.requireValidation ||
-      instance.validated;
-
-    controls.addToCartButtons.forEach(
-      function (button) {
+  function syncInputValues(pincode) {
+    getActiveInstances().forEach(
+      function (instance) {
         if (
-          shouldAllowPurchase ||
-          !instance.settings.restrictAddToCart
+          instance.input.value === pincode
         ) {
-          restoreButton(button);
-        } else {
-          restrictButton(button);
+          return;
         }
-      },
-    );
 
-    controls.buyNowButtons.forEach(
-      function (button) {
-        if (
-          shouldAllowPurchase ||
-          !instance.settings.restrictBuyNow
-        ) {
-          restoreButton(button);
-        } else {
-          restrictButton(button);
-        }
-      },
-    );
-
-    controls.buyNowContainers.forEach(
-      function (container) {
-        if (
-          shouldAllowPurchase ||
-          !instance.settings.restrictBuyNow
-        ) {
-          restoreBuyNowContainer(container);
-        } else {
-          restrictBuyNowContainer(container);
-        }
+        instance.suppressInputEvent = true;
+        instance.input.value = pincode;
+        instance.suppressInputEvent = false;
       },
     );
   }
 
-  function invalidateInstance(
-    instance,
+  function renderSharedState() {
+    var activeInstances =
+      getActiveInstances();
+
+    activeInstances.forEach(
+      function (instance) {
+        setInstanceLoading(
+          instance,
+          sharedState.loading,
+        );
+
+        if (
+          sharedState.pincode &&
+          instance.input.value !==
+            sharedState.pincode
+        ) {
+          instance.suppressInputEvent =
+            true;
+
+          instance.input.value =
+            sharedState.pincode;
+
+          instance.suppressInputEvent =
+            false;
+        }
+
+        if (sharedState.responseData) {
+          renderResult(
+            instance,
+            sharedState.responseData,
+          );
+        } else {
+          renderEmpty(instance);
+        }
+      },
+    );
+
+    applySharedPurchaseState();
+  }
+
+  function resetSharedValidation(
     options,
   ) {
     var config = options || {};
 
-    instance.validated = false;
-    instance.validatedPincode = "";
+    sharedState.pincode =
+      config.keepPincode
+        ? sharedState.pincode
+        : "";
+
+    sharedState.valid = false;
+    sharedState.responseData = null;
+    sharedState.loading = false;
 
     if (config.clearSavedPincode) {
       clearSavedPincode();
     }
 
-    if (config.clearResult !== false) {
-      renderEmpty(instance);
-    }
+    getActiveInstances().forEach(
+      function (instance) {
+        setInstanceLoading(
+          instance,
+          false,
+        );
 
-    applyPurchaseState(instance);
+        if (
+          config.clearInputs === true
+        ) {
+          instance.suppressInputEvent =
+            true;
+
+          instance.input.value = "";
+
+          instance.suppressInputEvent =
+            false;
+        }
+
+        if (
+          config.clearResults !== false
+        ) {
+          renderEmpty(instance);
+        }
+      },
+    );
+
+    applySharedPurchaseState();
   }
 
-  async function requestValidation(
-    instance,
-    pincode,
+  function buildSettingsResponse(
+    responseData,
   ) {
-    if (instance.requestController) {
-      instance.requestController.abort();
+    if (
+      responseData &&
+      responseData.settings
+    ) {
+      mergeSharedSettings(
+        responseData.settings,
+      );
     }
 
-    instance.requestController =
-      typeof AbortController !== "undefined"
-        ? new AbortController()
-        : null;
+    return responseData;
+  }
 
-    var fetchOptions = {
+  async function makeValidationRequest(
+    pincode,
+  ) {
+    if (responseCache.has(pincode)) {
+      return responseCache.get(pincode);
+    }
+
+    if (pendingRequests.has(pincode)) {
+      return pendingRequests.get(pincode);
+    }
+
+    var endpoint =
+      getPrimaryEndpoint();
+
+    if (!endpoint) {
+      throw new Error(
+        "Validation endpoint is unavailable.",
+      );
+    }
+
+    var requestPromise = fetch(endpoint, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type":
+          "application/json",
         Accept: "application/json",
       },
       credentials: "same-origin",
       body: JSON.stringify({
         pincode: pincode,
       }),
-    };
+    })
+      .then(function (response) {
+        return response
+          .text()
+          .then(function (text) {
+            var parsed =
+              parseJsonSafely(text);
 
-    if (instance.requestController) {
-      fetchOptions.signal =
-        instance.requestController.signal;
-    }
+            if (!parsed) {
+              throw new Error(
+                "The server returned an invalid response.",
+              );
+            }
 
-    var response = await fetch(
-      instance.endpoint,
-      fetchOptions,
+            buildSettingsResponse(parsed);
+
+            if (!response.ok) {
+              var requestError =
+                new Error(
+                  parsed.message ||
+                    "Validation failed.",
+                );
+
+              requestError.responseData =
+                parsed;
+
+              throw requestError;
+            }
+
+            responseCache.set(
+              pincode,
+              parsed,
+            );
+
+            return parsed;
+          });
+      })
+      .finally(function () {
+        pendingRequests.delete(
+          pincode,
+        );
+      });
+
+    pendingRequests.set(
+      pincode,
+      requestPromise,
     );
 
-    var text = await response.text();
-    var parsed = parseJsonSafely(text);
-
-    if (!parsed) {
-      throw new Error(
-        "The server returned an invalid response.",
-      );
-    }
-
-    return {
-      response: response,
-      data: parsed,
-    };
+    return requestPromise;
   }
 
-  async function validatePincode(
-    instance,
-    options,
-  ) {
-    var config = options || {};
-    var silent = Boolean(config.silent);
-    var pincode = instance.input.value.trim();
+  async function loadSharedSettings() {
+    var endpoint =
+      getPrimaryEndpoint();
 
-    instance.input.value = pincode;
-
-    if (!pincode) {
-      invalidateInstance(instance, {
-        clearSavedPincode: true,
-        clearResult: silent,
-      });
-
-      if (!silent) {
-        renderError(
-          instance,
-          "Please enter a pincode.",
-        );
-
-        instance.input.focus();
-      }
-
+    if (!endpoint) {
       return;
-    }
-
-    if (!isValidPincode(pincode)) {
-      invalidateInstance(instance, {
-        clearSavedPincode: true,
-        clearResult: false,
-      });
-
-      if (!silent) {
-        renderError(
-          instance,
-          "Please enter a valid 6-digit Indian pincode.",
-        );
-
-        instance.input.focus();
-      }
-
-      return;
-    }
-
-    if (!silent) {
-      renderEmpty(instance);
-      setLoading(instance, true);
     }
 
     try {
-      var validationResponse =
-        await requestValidation(
-          instance,
-          pincode,
-        );
-
-      var response =
-        validationResponse.response;
-
-      var responseData =
-        validationResponse.data;
-
-      mergeSettings(
-        instance,
-        responseData.settings,
+      var response = await fetch(
+        endpoint,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+            Accept:
+              "application/json",
+          },
+          credentials: "same-origin",
+          body: JSON.stringify({
+            pincode: "",
+          }),
+        },
       );
 
-      if (!response.ok) {
-        instance.validated = false;
-        instance.validatedPincode = "";
+      var text =
+        await response.text();
 
-        if (!silent) {
-          renderError(
-            instance,
-            responseData.message ||
-              "Validation failed. Please try again.",
-          );
-        }
+      var parsed =
+        parseJsonSafely(text);
 
-        applyPurchaseState(instance);
+      if (
+        parsed &&
+        parsed.settings
+      ) {
+        mergeSharedSettings(
+          parsed.settings,
+        );
+      }
+    } catch (error) {
+      console.warn(
+        "Pincode Validator: settings could not be loaded.",
+        error,
+      );
+    } finally {
+      applySharedPurchaseState();
+    }
+  }
+
+  function showErrorOnAllWidgets(
+    message,
+  ) {
+    getActiveInstances().forEach(
+      function (instance) {
+        renderError(
+          instance,
+          message,
+        );
+      },
+    );
+  }
+
+  async function validateSharedPincode(
+    pincode,
+    options,
+  ) {
+    var config = options || {};
+    var silent = Boolean(
+      config.silent,
+    );
+
+    var normalizedPincode =
+      String(pincode || "")
+        .replace(/\D/g, "")
+        .slice(0, 6);
+
+    syncInputValues(
+      normalizedPincode,
+    );
+
+    if (!normalizedPincode) {
+      resetSharedValidation({
+        clearSavedPincode: true,
+        clearInputs: false,
+        clearResults: true,
+      });
+
+      if (!silent) {
+        showErrorOnAllWidgets(
+          "Please enter a pincode.",
+        );
+      }
+
+      return;
+    }
+
+    if (
+      !isValidPincode(
+        normalizedPincode,
+      )
+    ) {
+      resetSharedValidation({
+        clearSavedPincode: true,
+        clearInputs: false,
+        clearResults: true,
+      });
+
+      if (!silent) {
+        showErrorOnAllWidgets(
+          "Please enter a valid 6-digit Indian pincode.",
+        );
+      }
+
+      return;
+    }
+
+    sharedState.pincode =
+      normalizedPincode;
+
+    sharedState.valid = false;
+    sharedState.responseData = null;
+
+    setAllInstancesLoading(true);
+    applySharedPurchaseState();
+
+    try {
+      var responseData =
+        await makeValidationRequest(
+          normalizedPincode,
+        );
+
+      /*
+       * Ignore a completed request if the customer changed
+       * the shared pincode while that request was running.
+       */
+      if (
+        sharedState.pincode !==
+        normalizedPincode
+      ) {
         return;
       }
 
-      instance.validated =
+      sharedState.valid =
         Boolean(responseData.valid);
 
-      instance.validatedPincode =
-        instance.validated
-          ? pincode
-          : "";
+      sharedState.responseData =
+        responseData;
 
-      renderResult(
-        instance,
-        responseData,
-      );
-
-      if (instance.validated) {
+      if (sharedState.valid) {
         savePincode(
-          pincode,
-          instance.settings.rememberPincodeDays,
+          normalizedPincode,
+          sharedState.settings
+            .rememberPincodeDays,
         );
       } else {
         clearSavedPincode();
       }
 
-      applyPurchaseState(instance);
+      renderSharedState();
     } catch (error) {
       if (
-        error &&
-        error.name === "AbortError"
+        sharedState.pincode !==
+        normalizedPincode
       ) {
         return;
       }
@@ -874,53 +1199,48 @@
         error,
       );
 
-      instance.validated = false;
-      instance.validatedPincode = "";
+      responseData =
+        error && error.responseData
+          ? error.responseData
+          : null;
 
-      if (!silent) {
-        renderError(
-          instance,
-          "Could not validate the pincode. Please try again.",
-        );
+      sharedState.valid = false;
+
+      if (responseData) {
+        sharedState.responseData =
+          responseData;
+
+        renderSharedState();
+      } else {
+        sharedState.responseData =
+          null;
+
+        if (!silent) {
+          showErrorOnAllWidgets(
+            "Could not validate the pincode. Please try again.",
+          );
+        }
       }
 
-      applyPurchaseState(instance);
+      clearSavedPincode();
+      applySharedPurchaseState();
     } finally {
-      if (!silent) {
-        setLoading(instance, false);
-      }
-    }
-  }
-
-  async function loadSettings(instance) {
-    try {
-      var settingsResponse =
-        await requestValidation(
-          instance,
-          "",
-        );
-
-      mergeSettings(
-        instance,
-        settingsResponse.data.settings,
-      );
-    } catch (error) {
       if (
-        !error ||
-        error.name !== "AbortError"
+        sharedState.pincode ===
+        normalizedPincode
       ) {
-        console.warn(
-          "Pincode Validator: settings could not be loaded.",
-          error,
-        );
+        setAllInstancesLoading(false);
       }
     }
   }
 
-  function getCurrentVariantValue(instance) {
-    var context = findClosestProductContext(
-      instance.widget,
-    );
+  function getCurrentVariantValue(
+    instance,
+  ) {
+    var context =
+      findClosestProductContext(
+        instance.widget,
+      );
 
     var variantFields = queryAll(
       VARIANT_SELECTORS,
@@ -949,7 +1269,9 @@
     instance,
   ) {
     var currentVariantValue =
-      getCurrentVariantValue(instance);
+      getCurrentVariantValue(
+        instance,
+      );
 
     if (
       currentVariantValue ===
@@ -962,33 +1284,84 @@
       currentVariantValue;
 
     /*
-     * Delivery availability currently depends on the
-     * pincode rather than the variant, so a previously
-     * validated pincode remains valid. We only reapply
-     * restrictions because many themes replace their
-     * product buttons after variant changes.
+     * Pincode availability is currently independent of
+     * variants. We retain the shared validation result and
+     * reapply restrictions after theme-rendered buttons
+     * have been replaced.
      */
-    window.setTimeout(function () {
-      applyPurchaseState(instance);
-    }, 0);
-
-    window.setTimeout(function () {
-      applyPurchaseState(instance);
-    }, 250);
-
-    window.setTimeout(function () {
-      applyPurchaseState(instance);
-    }, 750);
-  }
-
-  function attachInstanceEvents(instance) {
-    instance.submitButton.setAttribute(
-      "data-original-label",
-      instance.buttonText
-        ? instance.buttonText.textContent.trim()
-        : "Check",
+    window.setTimeout(
+      applySharedPurchaseState,
+      0,
     );
 
+    window.setTimeout(
+      applySharedPurchaseState,
+      250,
+    );
+
+    window.setTimeout(
+      applySharedPurchaseState,
+      750,
+    );
+  }
+
+  function handleInstanceInput(
+    instance,
+  ) {
+    if (
+      instance.suppressInputEvent
+    ) {
+      return;
+    }
+
+    var sanitizedValue =
+      instance.input.value
+        .replace(/\D/g, "")
+        .slice(0, 6);
+
+    if (
+      instance.input.value !==
+      sanitizedValue
+    ) {
+      instance.input.value =
+        sanitizedValue;
+    }
+
+    /*
+     * Synchronise what the customer types into all blocks.
+     */
+    syncInputValues(
+      sanitizedValue,
+    );
+
+    if (
+      sharedState.pincode &&
+      sanitizedValue !==
+        sharedState.pincode
+    ) {
+      sharedState.pincode =
+        sanitizedValue;
+
+      sharedState.valid = false;
+      sharedState.responseData = null;
+
+      clearSavedPincode();
+
+      getActiveInstances().forEach(
+        function (activeInstance) {
+          renderEmpty(
+            activeInstance,
+          );
+        },
+      );
+
+      applySharedPurchaseState();
+    }
+  }
+
+  function attachInstanceEvents(
+    instance,
+  ) {
     if (instance.spinner) {
       instance.spinner.hidden = true;
     }
@@ -996,7 +1369,9 @@
     instance.submitButton.addEventListener(
       "click",
       function () {
-        validatePincode(instance);
+        validateSharedPincode(
+          instance.input.value,
+        );
       },
     );
 
@@ -1005,7 +1380,10 @@
       function (event) {
         if (event.key === "Enter") {
           event.preventDefault();
-          validatePincode(instance);
+
+          validateSharedPincode(
+            instance.input.value,
+          );
         }
       },
     );
@@ -1013,40 +1391,22 @@
     instance.input.addEventListener(
       "input",
       function () {
-        var sanitizedValue =
-          instance.input.value
-            .replace(/\D/g, "")
-            .slice(0, 6);
-
-        if (
-          instance.input.value !==
-          sanitizedValue
-        ) {
-          instance.input.value =
-            sanitizedValue;
-        }
-
-        if (
-          instance.validatedPincode &&
-          sanitizedValue !==
-            instance.validatedPincode
-        ) {
-          invalidateInstance(instance, {
-            clearSavedPincode: true,
-            clearResult: true,
-          });
-        }
+        handleInstanceInput(
+          instance,
+        );
       },
     );
 
-    var context = findClosestProductContext(
-      instance.widget,
-    );
+    var context =
+      findClosestProductContext(
+        instance.widget,
+      );
 
     context.addEventListener(
       "change",
       function (event) {
-        var target = event.target;
+        var target =
+          event.target;
 
         if (
           !(target instanceof Element)
@@ -1076,28 +1436,40 @@
     );
 
     instance.variantValue =
-      getCurrentVariantValue(instance);
+      getCurrentVariantValue(
+        instance,
+      );
   }
 
-  async function bootInstance(instance) {
-    await loadSettings(instance);
+  function applySharedStateToNewInstance(
+    instance,
+  ) {
+    if (sharedState.pincode) {
+      instance.suppressInputEvent =
+        true;
 
-    applyPurchaseState(instance);
-
-    var savedRecord =
-      getSavedPincodeRecord();
-
-    if (
-      savedRecord &&
-      savedRecord.pincode
-    ) {
       instance.input.value =
-        savedRecord.pincode;
+        sharedState.pincode;
 
-      await validatePincode(instance, {
-        silent: true,
-      });
+      instance.suppressInputEvent =
+        false;
     }
+
+    setInstanceLoading(
+      instance,
+      sharedState.loading,
+    );
+
+    if (sharedState.responseData) {
+      renderResult(
+        instance,
+        sharedState.responseData,
+      );
+    } else {
+      renderEmpty(instance);
+    }
+
+    applySharedPurchaseState();
   }
 
   function initializeWidget(widget) {
@@ -1124,15 +1496,21 @@
 
     attachInstanceEvents(instance);
     instances.push(instance);
-    bootInstance(instance);
+
+    applySharedStateToNewInstance(
+      instance,
+    );
   }
 
   function initializeWidgets(root) {
-    var searchRoot = root || document;
+    var searchRoot =
+      root || document;
 
     if (
       searchRoot instanceof Element &&
-      searchRoot.matches(WIDGET_SELECTOR)
+      searchRoot.matches(
+        WIDGET_SELECTOR,
+      )
     ) {
       initializeWidget(searchRoot);
     }
@@ -1162,12 +1540,6 @@
 
         if (!connected) {
           instance.destroyed = true;
-
-          if (
-            instance.requestController
-          ) {
-            instance.requestController.abort();
-          }
         }
 
         return connected;
@@ -1179,21 +1551,33 @@
     cleanupDisconnectedInstances();
     initializeWidgets(document);
 
-    instances.forEach(function (instance) {
-      applyPurchaseState(instance);
-      handlePossibleVariantChange(instance);
-    });
+    getActiveInstances().forEach(
+      function (instance) {
+        applySharedStateToNewInstance(
+          instance,
+        );
+
+        handlePossibleVariantChange(
+          instance,
+        );
+      },
+    );
+
+    applySharedPurchaseState();
   }
 
   function scheduleRefresh(delay) {
-    window.clearTimeout(refreshTimer);
-
-    refreshTimer = window.setTimeout(
-      refreshAllInstances,
-      typeof delay === "number"
-        ? delay
-        : 100,
+    window.clearTimeout(
+      refreshTimer,
     );
+
+    refreshTimer =
+      window.setTimeout(
+        refreshAllInstances,
+        typeof delay === "number"
+          ? delay
+          : 100,
+      );
   }
 
   function attachGlobalEvents() {
@@ -1206,7 +1590,17 @@
     document.addEventListener(
       "shopify:section:load",
       function (event) {
-        initializeWidgets(event.target);
+        initializeWidgets(
+          event.target,
+        );
+
+        scheduleRefresh(50);
+      },
+    );
+
+    document.addEventListener(
+      "shopify:section:unload",
+      function () {
         scheduleRefresh(50);
       },
     );
@@ -1221,7 +1615,10 @@
     document.addEventListener(
       "shopify:block:select",
       function (event) {
-        initializeWidgets(event.target);
+        initializeWidgets(
+          event.target,
+        );
+
         scheduleRefresh(50);
       },
     );
@@ -1233,54 +1630,32 @@
       },
     );
 
-    document.addEventListener(
+    [
       "variant:change",
-      function () {
-        scheduleRefresh(50);
-      },
-    );
-
-    document.addEventListener(
       "variant:changed",
-      function () {
-        scheduleRefresh(50);
-      },
-    );
-
-    document.addEventListener(
       "product:variant-change",
-      function () {
-        scheduleRefresh(50);
-      },
-    );
-
-    document.addEventListener(
       "product:variant:change",
-      function () {
-        scheduleRefresh(50);
-      },
-    );
+    ].forEach(function (eventName) {
+      document.addEventListener(
+        eventName,
+        function () {
+          scheduleRefresh(50);
+        },
+      );
+    });
 
-    document.addEventListener(
+    [
       "quickview:open",
-      function () {
-        scheduleRefresh(100);
-      },
-    );
-
-    document.addEventListener(
       "quick-view:open",
-      function () {
-        scheduleRefresh(100);
-      },
-    );
-
-    document.addEventListener(
       "quick-add:open",
-      function () {
-        scheduleRefresh(100);
-      },
-    );
+    ].forEach(function (eventName) {
+      document.addEventListener(
+        eventName,
+        function () {
+          scheduleRefresh(100);
+        },
+      );
+    });
 
     window.addEventListener(
       "pageshow",
@@ -1295,6 +1670,38 @@
         scheduleRefresh(50);
       },
     );
+
+    window.addEventListener(
+      "storage",
+      function (event) {
+        if (
+          event.key !== STORAGE_KEY
+        ) {
+          return;
+        }
+
+        var savedRecord =
+          getSavedPincodeRecord();
+
+        if (
+          savedRecord &&
+          savedRecord.pincode
+        ) {
+          validateSharedPincode(
+            savedRecord.pincode,
+            {
+              silent: true,
+            },
+          );
+        } else {
+          resetSharedValidation({
+            clearSavedPincode: false,
+            clearInputs: true,
+            clearResults: true,
+          });
+        }
+      },
+    );
   }
 
   function startMutationObserver() {
@@ -1307,77 +1714,79 @@
       return;
     }
 
-    globalObserver = new MutationObserver(
-      function (mutations) {
-        var shouldRefresh = mutations.some(
-          function (mutation) {
-            if (
-              mutation.type !== "childList" ||
-              mutation.addedNodes.length === 0
-            ) {
-              return false;
-            }
+    var relevantSelector = [
+      WIDGET_SELECTOR,
+      PRODUCT_FORM_SELECTORS.join(","),
+      ADD_TO_CART_SELECTORS.join(","),
+      BUY_NOW_CONTAINER_SELECTORS.join(
+        ",",
+      ),
+    ].join(",");
 
-            return Array.prototype.some.call(
-              mutation.addedNodes,
-              function (node) {
+    globalObserver =
+      new MutationObserver(
+        function (mutations) {
+          var shouldRefresh =
+            mutations.some(
+              function (mutation) {
                 if (
-                  !(node instanceof Element)
+                  mutation.type !==
+                    "childList" ||
+                  mutation.addedNodes
+                    .length === 0
                 ) {
                   return false;
                 }
 
-                if (
-                  node.matches(WIDGET_SELECTOR) ||
-                  node.querySelector(
-                    WIDGET_SELECTOR,
-                  )
-                ) {
-                  initializeWidgets(node);
-                }
+                return Array.prototype.some.call(
+                  mutation.addedNodes,
+                  function (node) {
+                    if (
+                      !(
+                        node instanceof
+                        Element
+                      )
+                    ) {
+                      return false;
+                    }
 
-                return (
-                  node.matches(
-                    PRODUCT_FORM_SELECTORS.join(
-                      ",",
-                    ),
-                  ) ||
-                  node.querySelector(
-                    PRODUCT_FORM_SELECTORS.join(
-                      ",",
-                    ),
-                  ) ||
-                  node.matches(
-                    ADD_TO_CART_SELECTORS.join(
-                      ",",
-                    ),
-                  ) ||
-                  node.querySelector(
-                    ADD_TO_CART_SELECTORS.join(
-                      ",",
-                    ),
-                  ) ||
-                  node.matches(
-                    BUY_NOW_CONTAINER_SELECTORS.join(
-                      ",",
-                    ),
-                  ) ||
-                  node.querySelector(
-                    BUY_NOW_CONTAINER_SELECTORS.join(
-                      ",",
-                    ),
-                  )
+                    if (
+                      node.matches(
+                        WIDGET_SELECTOR,
+                      ) ||
+                      node.querySelector(
+                        WIDGET_SELECTOR,
+                      )
+                    ) {
+                      initializeWidgets(
+                        node,
+                      );
+                    }
+
+                    try {
+                      return (
+                        node.matches(
+                          relevantSelector,
+                        ) ||
+                        Boolean(
+                          node.querySelector(
+                            relevantSelector,
+                          ),
+                        )
+                      );
+                    } catch (error) {
+                      return false;
+                    }
+                  },
                 );
               },
             );
-          },
-        );
 
-        if (shouldRefresh) {
-          scheduleRefresh(80);
-        }
-      },
-    );
+          if (shouldRefresh) {
+            scheduleRefresh(80);
+          }
+        },
+      );
 
     globalObserver.observe(
       document.body,
@@ -1388,15 +1797,44 @@
     );
   }
 
+  async function restoreRememberedPincode() {
+    if (restoreStarted) {
+      return;
+    }
+
+    restoreStarted = true;
+
+    await loadSharedSettings();
+
+    var savedRecord =
+      getSavedPincodeRecord();
+
+    if (
+      savedRecord &&
+      savedRecord.pincode
+    ) {
+      await validateSharedPincode(
+        savedRecord.pincode,
+        {
+          silent: true,
+        },
+      );
+    } else {
+      applySharedPurchaseState();
+    }
+  }
+
   function start() {
     initializeWidgets(document);
     attachGlobalEvents();
     startMutationObserver();
+    restoreRememberedPincode();
     scheduleRefresh(100);
   }
 
   if (
-    document.readyState === "loading"
+    document.readyState ===
+    "loading"
   ) {
     document.addEventListener(
       "DOMContentLoaded",
