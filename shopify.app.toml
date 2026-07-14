@@ -12,14 +12,14 @@ automatically_update_urls_on_dev = true
 api_version = "2026-04"
 
   [[webhooks.subscriptions]]
-  topics = [ "app/uninstalled" ]
+  topics = ["app/uninstalled"]
   uri = "/webhooks/app/uninstalled"
 
   [[webhooks.subscriptions]]
-  topics = [ "app/scopes_update" ]
+  topics = ["app/scopes_update"]
   uri = "/webhooks/app/scopes_update"
 
-   [[webhooks.subscriptions]]
+  [[webhooks.subscriptions]]
   compliance_topics = [
     "customers/data_request",
     "customers/redact",
@@ -29,7 +29,7 @@ api_version = "2026-04"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_products"
+scopes = ""
 
 [auth]
 redirect_urls = [ "https://shopify.ppdesigntech.com/api/auth" ]
