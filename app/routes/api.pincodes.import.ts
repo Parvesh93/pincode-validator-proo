@@ -133,57 +133,90 @@ export async function action({ request }: ActionFunctionArgs) {
      * If any operation fails, Prisma rolls back the entire transaction,
      * including the deletion performed in replace mode.
      */
-    const importResult = await prisma.$transaction(async (transaction) => {
-      let deletedBeforeImport = 0;
+    const importResult = await prisma.$transaction(
+  async (transaction) => {
+    let deletedBeforeImport = 0;
 
-      if (mode === "replace") {
-        const deleteResult = await transaction.pincode.deleteMany({
+    if (mode === "replace") {
+      const deleteResult =
+        await transaction.pincode.deleteMany({
           where: {
             shopId: shop.id,
           },
         });
 
-        deletedBeforeImport = deleteResult.count;
-      }
+      deletedBeforeImport = deleteResult.count;
+    }
 
-      for (const row of validRows) {
-        await transaction.pincode.upsert({
-          where: {
-            shopId_pincode: {
+    /*
+     * Process rows in smaller batches rather than issuing
+     * every database query as one long uninterrupted loop.
+     */
+    const batchSize = 100;
+
+    for (
+      let startIndex = 0;
+      startIndex < validRows.length;
+      startIndex += batchSize
+    ) {
+      const batch = validRows.slice(
+        startIndex,
+        startIndex + batchSize,
+      );
+
+      await Promise.all(
+        batch.map((row) =>
+          transaction.pincode.upsert({
+            where: {
+              shopId_pincode: {
+                shopId: shop.id,
+                pincode: row.pincode,
+              },
+            },
+            update: {
+              city: row.city ?? null,
+              state: row.state ?? null,
+              country: row.country ?? null,
+              codAvailable:
+                row.codAvailable,
+              prepaidAvailable:
+                row.prepaidAvailable,
+              estDeliveryDays:
+                row.estDeliveryDays ?? null,
+              isActive: row.isActive,
+              source: row.source,
+            },
+            create: {
               shopId: shop.id,
               pincode: row.pincode,
+              city: row.city ?? null,
+              state: row.state ?? null,
+              country: row.country ?? null,
+              codAvailable:
+                row.codAvailable,
+              prepaidAvailable:
+                row.prepaidAvailable,
+              estDeliveryDays:
+                row.estDeliveryDays ?? null,
+              isActive: row.isActive,
+              source: row.source,
             },
-          },
-          update: {
-            city: row.city ?? null,
-            state: row.state ?? null,
-            country: row.country ?? null,
-            codAvailable: row.codAvailable,
-            prepaidAvailable: row.prepaidAvailable,
-            estDeliveryDays: row.estDeliveryDays ?? null,
-            isActive: row.isActive,
-            source: row.source,
-          },
-          create: {
-            shopId: shop.id,
-            pincode: row.pincode,
-            city: row.city ?? null,
-            state: row.state ?? null,
-            country: row.country ?? null,
-            codAvailable: row.codAvailable,
-            prepaidAvailable: row.prepaidAvailable,
-            estDeliveryDays: row.estDeliveryDays ?? null,
-            isActive: row.isActive,
-            source: row.source,
-          },
-        });
-      }
+          }),
+        ),
+      );
+    }
 
-      return {
-        insertedOrUpdated: validRows.length,
-        deletedBeforeImport,
-      };
-    });
+    return {
+      insertedOrUpdated:
+        validRows.length,
+      deletedBeforeImport,
+    };
+  },
+  {
+    maxWait: 10_000,
+    timeout: 120_000,
+  },
+);
 
     return Response.json({
       success: true,
@@ -208,7 +241,17 @@ export async function action({ request }: ActionFunctionArgs) {
         invalidRows.length > MAX_INVALID_ROWS_IN_RESPONSE,
     });
   } catch (error: unknown) {
-    console.error("Pincode CSV import failed:", error);
+  console.error("Pincode CSV import failed", {
+    error,
+    message:
+      error instanceof Error
+        ? error.message
+        : "Unknown error",
+    stack:
+      error instanceof Error
+        ? error.stack
+        : undefined,
+  });
 
     return Response.json(
       {
