@@ -12,6 +12,7 @@ import {
 } from "react-router";
 
 import {
+  AppProvider,
   Badge,
   Banner,
   BlockStack,
@@ -28,6 +29,8 @@ import {
   Text,
   TextField,
 } from "@shopify/polaris";
+
+import enTranslations from "@shopify/polaris/locales/en.json";
 
 import { authenticate } from "../shopify.server";
 
@@ -657,6 +660,7 @@ export default function ValidationLogsPage() {
   }
 
   return (
+    <AppProvider i18n={enTranslations}>
     <Page
       title="Validation Logs"
       subtitle={`Review storefront pincode checks for ${shopDomain}.`}
@@ -1784,6 +1788,7 @@ export default function ValidationLogsPage() {
           }
         `}
       </style>
-    </Page>
+        </Page>
+  </AppProvider>
   );
 }
