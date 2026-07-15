@@ -30,6 +30,8 @@ import {
   TextField,
 } from "@shopify/polaris";
 
+import "@shopify/polaris/build/esm/styles.css";
+
 import enTranslations from "@shopify/polaris/locales/en.json";
 
 import { authenticate } from "../shopify.server";
