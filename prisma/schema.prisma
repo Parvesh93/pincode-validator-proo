@@ -85,14 +85,34 @@ model Pincode {
 }
 
 model ValidationLog {
-  id        String   @id @default(cuid())
-  shopId    String
-  pincode   String
-  productId String?
-  result    String
-  createdAt DateTime @default(now())
+  id               String   @id @default(cuid())
+  shopId           String
+  pincode          String
+
+  city             String?
+  state            String?
+  country          String?
+
+  productId        String?
+  productHandle    String?
+  productTitle     String?
+
+  codAvailable     Boolean  @default(false)
+  prepaidAvailable Boolean  @default(false)
+  estDeliveryDays  Int?
+
+  result           String
+  isAvailable      Boolean  @default(false)
+
+  source           String   @default("storefront")
+  userAgent        String?
+
+  createdAt        DateTime @default(now())
 
   shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
   @@index([shopId, pincode])
+  @@index([shopId, createdAt])
+  @@index([shopId, isAvailable])
+  @@index([shopId, result])
 }

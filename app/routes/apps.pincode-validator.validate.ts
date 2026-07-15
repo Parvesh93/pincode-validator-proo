@@ -15,6 +15,36 @@ type StorefrontSettings = {
   defaultCountry: string;
 };
 
+type ValidationRequestBody = {
+  pincode?: unknown;
+  productId?: unknown;
+  productHandle?: unknown;
+  productTitle?: unknown;
+  source?: unknown;
+};
+
+type ValidationLogInput = {
+  shopId: string;
+  pincode: string;
+  result: string;
+  isAvailable: boolean;
+
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+
+  productId?: string | null;
+  productHandle?: string | null;
+  productTitle?: string | null;
+
+  codAvailable?: boolean;
+  prepaidAvailable?: boolean;
+  estDeliveryDays?: number | null;
+
+  source?: string | null;
+  userAgent?: string | null;
+};
+
 function getStorefrontSettings(
   settings:
     | {
@@ -96,6 +126,118 @@ function unavailableResponse({
   };
 }
 
+function normalizeOptionalString(
+  value: unknown,
+  maximumLength = 255,
+): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  return normalized.slice(
+    0,
+    maximumLength,
+  );
+}
+
+function normalizeSource(
+  value: unknown,
+): string {
+  const source = normalizeOptionalString(
+    value,
+    50,
+  );
+
+  if (!source) {
+    return "storefront";
+  }
+
+  /*
+   * Keep the value predictable and suitable
+   * for future analytics filtering.
+   */
+  return source
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, "-")
+    .slice(0, 50);
+}
+
+function getUserAgent(
+  request: Request,
+): string | null {
+  const userAgent =
+    request.headers.get("user-agent");
+
+  return normalizeOptionalString(
+    userAgent,
+    500,
+  );
+}
+
+/**
+ * Analytics should never interrupt storefront validation.
+ *
+ * If logging fails because of a temporary database issue,
+ * the customer must still receive the correct validation
+ * response.
+ */
+async function createValidationLog(
+  input: ValidationLogInput,
+) {
+  try {
+    await db.validationLog.create({
+      data: {
+        shopId: input.shopId,
+        pincode: input.pincode,
+
+        city: input.city ?? null,
+        state: input.state ?? null,
+        country: input.country ?? null,
+
+        productId:
+          input.productId ?? null,
+
+        productHandle:
+          input.productHandle ?? null,
+
+        productTitle:
+          input.productTitle ?? null,
+
+        codAvailable:
+          input.codAvailable ?? false,
+
+        prepaidAvailable:
+          input.prepaidAvailable ?? false,
+
+        estDeliveryDays:
+          input.estDeliveryDays ?? null,
+
+        result: input.result,
+
+        isAvailable:
+          input.isAvailable,
+
+        source:
+          input.source || "storefront",
+
+        userAgent:
+          input.userAgent ?? null,
+      },
+    });
+  } catch (error: unknown) {
+    console.error(
+      "Validation analytics logging failed:",
+      error,
+    );
+  }
+}
+
 export async function action({
   request,
 }: ActionFunctionArgs) {
@@ -119,10 +261,11 @@ export async function action({
       );
     }
 
-    let body: unknown;
+    let body: ValidationRequestBody;
 
     try {
-      body = await request.json();
+      body =
+        (await request.json()) as ValidationRequestBody;
     } catch {
       return Response.json(
         {
@@ -138,18 +281,33 @@ export async function action({
       );
     }
 
-    const pincode =
-      typeof body === "object" &&
-      body !== null &&
-      "pincode" in body
-        ? String(
-            (
-              body as {
-                pincode?: unknown;
-              }
-            ).pincode ?? "",
-          ).trim()
-        : "";
+    const pincode = String(
+      body?.pincode ?? "",
+    ).trim();
+
+    const productId =
+      normalizeOptionalString(
+        body?.productId,
+        100,
+      );
+
+    const productHandle =
+      normalizeOptionalString(
+        body?.productHandle,
+        255,
+      );
+
+    const productTitle =
+      normalizeOptionalString(
+        body?.productTitle,
+        255,
+      );
+
+    const source =
+      normalizeSource(body?.source);
+
+    const userAgent =
+      getUserAgent(request);
 
     const shopRecord =
       await db.shop.findUnique({
@@ -182,6 +340,13 @@ export async function action({
         shopRecord.settings,
       );
 
+    /*
+     * The storefront script may send an empty pincode
+     * request only to retrieve current settings.
+     *
+     * Do not record that request as a validation because
+     * it would inflate the analytics totals.
+     */
     if (!pincode) {
       return Response.json(
         unavailableResponse({
@@ -203,6 +368,27 @@ export async function action({
         pincode,
       )
     ) {
+      await createValidationLog({
+        shopId: shopRecord.id,
+        pincode,
+        result: "invalid",
+        isAvailable: false,
+
+        country:
+          settings.defaultCountry,
+
+        productId,
+        productHandle,
+        productTitle,
+
+        codAvailable: false,
+        prepaidAvailable: false,
+        estDeliveryDays: null,
+
+        source,
+        userAgent,
+      });
+
       return Response.json(
         unavailableResponse({
           pincode,
@@ -229,11 +415,78 @@ export async function action({
         },
       });
 
-    if (
-      !record ||
-      !record.isActive ||
-      !record.prepaidAvailable
-    ) {
+    if (!record) {
+      await createValidationLog({
+        shopId: shopRecord.id,
+        pincode,
+        result: "unavailable",
+        isAvailable: false,
+
+        city: null,
+        state: null,
+        country:
+          settings.defaultCountry,
+
+        productId,
+        productHandle,
+        productTitle,
+
+        codAvailable: false,
+        prepaidAvailable: false,
+        estDeliveryDays: null,
+
+        source,
+        userAgent,
+      });
+
+      return Response.json(
+        unavailableResponse({
+          pincode,
+          message:
+            settings.failureMessage,
+          settings,
+          city: null,
+          state: null,
+          country:
+            settings.defaultCountry,
+        }),
+      );
+    }
+
+    if (!record.isActive) {
+      await createValidationLog({
+        shopId: shopRecord.id,
+        pincode,
+        result: "inactive",
+        isAvailable: false,
+
+        city:
+          record.city ?? null,
+
+        state:
+          record.state ?? null,
+
+        country:
+          record.country ??
+          settings.defaultCountry,
+
+        productId,
+        productHandle,
+        productTitle,
+
+        codAvailable:
+          record.codAvailable,
+
+        prepaidAvailable:
+          record.prepaidAvailable,
+
+        estDeliveryDays:
+          record.estDeliveryDays ?? null,
+
+        source,
+        userAgent,
+      });
+
       return Response.json(
         unavailableResponse({
           pincode,
@@ -241,34 +494,129 @@ export async function action({
             settings.failureMessage,
           settings,
           city:
-            record?.city ?? null,
+            record.city ?? null,
           state:
-            record?.state ?? null,
+            record.state ?? null,
           country:
-            record?.country ??
+            record.country ??
             settings.defaultCountry,
         }),
       );
     }
 
-    return Response.json({
-      valid: true,
-      available: true,
-      pincode:
-        record.pincode,
-      message:
-        settings.successMessage,
-      codAvailable:
-        record.codAvailable,
-      prepaidAvailable:
-        record.prepaidAvailable,
-      estDeliveryDays:
-        record.estDeliveryDays,
-      city: record.city,
-      state: record.state,
+    if (!record.prepaidAvailable) {
+      await createValidationLog({
+        shopId: shopRecord.id,
+        pincode,
+        result:
+          "prepaid_unavailable",
+        isAvailable: false,
+
+        city:
+          record.city ?? null,
+
+        state:
+          record.state ?? null,
+
+        country:
+          record.country ??
+          settings.defaultCountry,
+
+        productId,
+        productHandle,
+        productTitle,
+
+        codAvailable:
+          record.codAvailable,
+
+        prepaidAvailable: false,
+
+        estDeliveryDays:
+          record.estDeliveryDays ?? null,
+
+        source,
+        userAgent,
+      });
+
+      return Response.json(
+        unavailableResponse({
+          pincode,
+          message:
+            settings.failureMessage,
+          settings,
+          city:
+            record.city ?? null,
+          state:
+            record.state ?? null,
+          country:
+            record.country ??
+            settings.defaultCountry,
+        }),
+      );
+    }
+
+    await createValidationLog({
+      shopId: shopRecord.id,
+      pincode,
+      result: "available",
+      isAvailable: true,
+
+      city:
+        record.city ?? null,
+
+      state:
+        record.state ?? null,
+
       country:
         record.country ??
         settings.defaultCountry,
+
+      productId,
+      productHandle,
+      productTitle,
+
+      codAvailable:
+        record.codAvailable,
+
+      prepaidAvailable:
+        record.prepaidAvailable,
+
+      estDeliveryDays:
+        record.estDeliveryDays ?? null,
+
+      source,
+      userAgent,
+    });
+
+    return Response.json({
+      valid: true,
+      available: true,
+
+      pincode:
+        record.pincode,
+
+      message:
+        settings.successMessage,
+
+      codAvailable:
+        record.codAvailable,
+
+      prepaidAvailable:
+        record.prepaidAvailable,
+
+      estDeliveryDays:
+        record.estDeliveryDays,
+
+      city:
+        record.city,
+
+      state:
+        record.state,
+
+      country:
+        record.country ??
+        settings.defaultCountry,
+
       settings,
     });
   } catch (error: unknown) {
