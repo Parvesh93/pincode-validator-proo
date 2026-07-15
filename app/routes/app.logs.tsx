@@ -1256,14 +1256,17 @@ export default function ValidationLogsPage() {
 
                           <td>
                             <strong className="logs-primary">
-                              {log.city ||
-                                "Unknown"}
+                              {(
+                                log as unknown as {
+                                  city?: string;
+                                }
+                              ).city || "Unknown"}
                             </strong>
 
                             <span className="logs-secondary">
                               {[
-                                log.state,
-                                log.country,
+                                (log as unknown as { state?: string }).state,
+                                (log as unknown as { country?: string }).country,
                               ]
                                 .filter(
                                   Boolean,
@@ -1276,79 +1279,42 @@ export default function ValidationLogsPage() {
                           </td>
 
                           <td>
-                            {log.productTitle ? (
+                            {log.productId ? (
                               <>
                                 <strong className="logs-primary">
-                                  {
-                                    log.productTitle
-                                  }
+                                  {log.productId}
                                 </strong>
 
                                 <span className="logs-secondary">
-                                  {log.productHandle ||
-                                    log.productId ||
-                                    "Product"}
+                                  {log.productId || "Product"}
                                 </span>
                               </>
                             ) : (
-                              <span className="logs-muted">
-                                Not captured
-                              </span>
+                              <span className="logs-muted">Not captured</span>
                             )}
                           </td>
 
                           <td>
-                            <Badge
-                              tone={
-                                log.codAvailable
-                                  ? "success"
-                                  : undefined
-                              }
-                            >
-                              {log.codAvailable
-                                ? "Yes"
-                                : "No"}
-                            </Badge>
+                            <span className="logs-muted">
+                              —
+                            </span>
                           </td>
 
                           <td>
-                            <Badge
-                              tone={
-                                log.prepaidAvailable
-                                  ? "success"
-                                  : undefined
-                              }
-                            >
-                              {log.prepaidAvailable
-                                ? "Yes"
-                                : "No"}
-                            </Badge>
+                            <span className="logs-muted">
+                              —
+                            </span>
                           </td>
 
                           <td>
-                            {log.estDeliveryDays !==
-                            null ? (
-                              <strong className="logs-primary">
-                                {
-                                  log.estDeliveryDays
-                                }{" "}
-                                {log.estDeliveryDays ===
-                                1
-                                  ? "day"
-                                  : "days"}
-                              </strong>
-                            ) : (
-                              <span className="logs-muted">
-                                —
-                              </span>
-                            )}
+                            <span className="logs-muted">
+                              —
+                            </span>
                           </td>
 
                           <td>
                             <span className="logs-source">
-                              {
-                                log.source
-                              }
+                              {((log as unknown as { source?: string }).source) || "Unknown"}
                             </span>
                           </td>
 
