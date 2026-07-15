@@ -667,6 +667,26 @@
       "data-endpoint",
     );
 
+    var productId =
+  widget.getAttribute(
+    "data-product-id",
+  ) || "";
+
+var productHandle =
+  widget.getAttribute(
+    "data-product-handle",
+  ) || "";
+
+var productTitle =
+  widget.getAttribute(
+    "data-product-title",
+  ) || "";
+
+var validationSource =
+  widget.getAttribute(
+    "data-validation-source",
+  ) || "storefront";
+
     if (
       !input ||
       !submitButton ||
@@ -682,22 +702,29 @@
     }
 
     return {
-      widget: widget,
-      input: input,
-      submitButton: submitButton,
-      buttonText: buttonText,
-      spinner: spinner,
-      result: result,
-      fieldError: fieldError,
-      restrictionNote: restrictionNote,
-      endpoint: endpoint,
-      originalButtonLabel: buttonText
-        ? buttonText.textContent.trim()
-        : "Check",
-      variantValue: "",
-      destroyed: false,
-      suppressInputEvent: false,
-    };
+  widget: widget,
+  input: input,
+  submitButton: submitButton,
+  buttonText: buttonText,
+  spinner: spinner,
+  result: result,
+  fieldError: fieldError,
+  restrictionNote: restrictionNote,
+  endpoint: endpoint,
+
+  productId: productId,
+  productHandle: productHandle,
+  productTitle: productTitle,
+  validationSource: validationSource,
+
+  originalButtonLabel: buttonText
+    ? buttonText.textContent.trim()
+    : "Check",
+
+  variantValue: "",
+  destroyed: false,
+  suppressInputEvent: false,
+};
   }
 
   function setInstanceLoading(instance, loading) {
@@ -1018,75 +1045,178 @@
     return responseData;
   }
 
-  async function makeValidationRequest(pincode) {
-    if (responseCache.has(pincode)) {
-      return responseCache.get(pincode);
-    }
+  function getValidationContext() {
+  var activeInstances =
+    getActiveInstances();
 
-    if (pendingRequests.has(pincode)) {
-      return pendingRequests.get(pincode);
-    }
+  if (!activeInstances.length) {
+    return {
+      productId: null,
+      productHandle: null,
+      productTitle: null,
+      source: "storefront",
+    };
+  }
 
-    var endpoint = getPrimaryEndpoint();
-
-    if (!endpoint) {
-      throw new Error(
-        "Validation endpoint is unavailable.",
-      );
-    }
-
-    var requestPromise = fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
+  /*
+   * Prefer an instance that contains product data.
+   * This is useful when multiple blocks are present.
+   */
+  var productInstance =
+    activeInstances.find(
+      function (instance) {
+        return (
+          instance.productId ||
+          instance.productHandle ||
+          instance.productTitle
+        );
       },
+    ) || activeInstances[0];
+
+  return {
+    productId:
+      productInstance.productId ||
+      null,
+
+    productHandle:
+      productInstance.productHandle ||
+      null,
+
+    productTitle:
+      productInstance.productTitle ||
+      null,
+
+    source:
+      productInstance.validationSource ||
+      "storefront",
+  };
+}
+
+  async function makeValidationRequest(
+  pincode,
+) {
+  /*
+   * Cache is scoped using both the pincode and product.
+   * This prevents product context from being mixed when
+   * quick-view or different product widgets are present.
+   */
+  var validationContext =
+    getValidationContext();
+
+  var cacheKey = [
+    pincode,
+    validationContext.productId || "",
+    validationContext.productHandle || "",
+  ].join(":");
+
+  if (
+    responseCache.has(cacheKey)
+  ) {
+    return responseCache.get(
+      cacheKey,
+    );
+  }
+
+  if (
+    pendingRequests.has(cacheKey)
+  ) {
+    return pendingRequests.get(
+      cacheKey,
+    );
+  }
+
+  var endpoint =
+    getPrimaryEndpoint();
+
+  if (!endpoint) {
+    throw new Error(
+      "Validation endpoint is unavailable.",
+    );
+  }
+
+  var requestPromise = fetch(
+    endpoint,
+    {
+      method: "POST",
+
+      headers: {
+        "Content-Type":
+          "application/json",
+
+        Accept:
+          "application/json",
+      },
+
       credentials: "same-origin",
+
       body: JSON.stringify({
         pincode: pincode,
+
+        productId:
+          validationContext.productId,
+
+        productHandle:
+          validationContext.productHandle,
+
+        productTitle:
+          validationContext.productTitle,
+
+        source:
+          validationContext.source,
       }),
-    })
-      .then(function (response) {
-        return response
-          .text()
-          .then(function (text) {
-            var parsed = parseJsonSafely(text);
+    },
+  )
+    .then(function (response) {
+      return response
+        .text()
+        .then(function (text) {
+          var parsed =
+            parseJsonSafely(text);
 
-            if (!parsed) {
-              throw new Error(
-                "The server returned an invalid response.",
-              );
-            }
+          if (!parsed) {
+            throw new Error(
+              "The server returned an invalid response.",
+            );
+          }
 
-            buildSettingsResponse(parsed);
+          buildSettingsResponse(
+            parsed,
+          );
 
-            if (!response.ok) {
-              var requestError = new Error(
+          if (!response.ok) {
+            var requestError =
+              new Error(
                 parsed.message ||
                   "Validation failed.",
               );
 
-              requestError.responseData = parsed;
+            requestError.responseData =
+              parsed;
 
-              throw requestError;
-            }
+            throw requestError;
+          }
 
-            responseCache.set(pincode, parsed);
+          responseCache.set(
+            cacheKey,
+            parsed,
+          );
 
-            return parsed;
-          });
-      })
-      .finally(function () {
-        pendingRequests.delete(pincode);
-      });
+          return parsed;
+        });
+    })
+    .finally(function () {
+      pendingRequests.delete(
+        cacheKey,
+      );
+    });
 
-    pendingRequests.set(
-      pincode,
-      requestPromise,
-    );
+  pendingRequests.set(
+    cacheKey,
+    requestPromise,
+  );
 
-    return requestPromise;
-  }
+  return requestPromise;
+}
 
   async function loadSharedSettings() {
     var endpoint = getPrimaryEndpoint();
@@ -1104,8 +1234,9 @@
         },
         credentials: "same-origin",
         body: JSON.stringify({
-          pincode: "",
-        }),
+  pincode: "",
+  source: "settings-load",
+}),
       });
 
       var text = await response.text();
