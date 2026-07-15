@@ -671,10 +671,15 @@ export default function ValidationLogsPage() {
         url: "/app",
       }}
       primaryAction={{
-        content:
-          "Export filtered CSV",
-        url: exportUrl,
-      }}
+  content: "Export filtered CSV",
+  onAction: () => {
+    window.open(
+      exportUrl,
+      "_blank",
+      "noopener,noreferrer",
+    );
+  },
+}}
     >
       <BlockStack gap="500">
         {actionData?.error ? (
