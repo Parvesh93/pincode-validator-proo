@@ -19,7 +19,3 @@ CREATE INDEX "ValidationLog_shopId_isAvailable_idx" ON "ValidationLog"("shopId",
 
 -- CreateIndex
 CREATE INDEX "ValidationLog_shopId_result_idx" ON "ValidationLog"("shopId", "result");
-
-UPDATE "ValidationLog"
-SET "isAvailable" = true
-WHERE LOWER("result") IN ('available', 'success', 'valid');

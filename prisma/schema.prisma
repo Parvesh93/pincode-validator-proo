@@ -48,15 +48,49 @@ model Shop {
 model AppSetting {
   id                  String   @id @default(cuid())
   shopId              String   @unique
+
   restrictAddToCart   Boolean  @default(true)
   restrictBuyNow      Boolean  @default(true)
   enableEmbed         Boolean  @default(true)
   enableBlock         Boolean  @default(true)
   requireValidation   Boolean  @default(true)
+
   successMessage      String   @default("Delivery available for this pincode.")
   failureMessage      String   @default("Sorry, delivery is not available for this pincode.")
+
   defaultCountry      String?
   rememberPincodeDays Int      @default(7)
+
+  popupEnabled        Boolean  @default(false)
+
+  popupTitle          String   @default("Check Delivery Availability")
+  popupDescription    String   @default("Enter your pincode to check delivery availability.")
+  popupButtonText     String   @default("Check Availability")
+  popupLocationText   String   @default("Use my current location")
+
+  popupTrigger        String   @default("delay")
+  popupDelaySeconds   Int      @default(3)
+
+  popupRemember       Boolean  @default(true)
+  popupRememberDays   Int      @default(7)
+
+  popupShowClose      Boolean  @default(true)
+  popupCloseOnOverlay Boolean  @default(true)
+
+  popupTheme          String   @default("light")
+  popupWidth          Int      @default(420)
+
+  popupShowHome       Boolean  @default(true)
+  popupShowProduct    Boolean  @default(true)
+  popupShowCollection Boolean  @default(true)
+  popupShowCart       Boolean  @default(false)
+  popupShowPages      Boolean  @default(false)
+
+  popupAutoClose      Boolean  @default(true)
+  popupAutoCloseDelay Int      @default(1500)
+
+  locationDetectionEnabled Boolean @default(false)
+
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
