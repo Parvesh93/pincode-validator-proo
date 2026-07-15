@@ -1087,13 +1087,12 @@ export default function ValidationLogsPage() {
                 action={
                   hasFilters
                     ? {
-                        content:
-                          "Clear filters",
+                        content: "Clear filters",
                         url: "/app/logs",
                       }
                     : undefined
                 }
-                image=""
+                image="data:image/svg+xml;utf8,<svg%20width='96'%20height='96'%20viewBox='0%200%2024%2024'%20fill='none'%20xmlns='http://www.w3.org/2000/svg'%20aria-hidden='true'><rect%20width='24'%20height='24'%20rx='4'%20fill='%23F6F7F8'/><path%20d='M8%2012h8'%20stroke='%23B0B7BD'%20stroke-width='1.5'%20stroke-linecap='round'%20stroke-linejoin='round'/><path%20d='M8%208h8'%20stroke='%23DDE2E6'%20stroke-width='1.5'%20stroke-linecap='round'%20stroke-linejoin='round'/><path%20d='M8%2016h5'%20stroke='%23DDE2E6'%20stroke-width='1.5'%20stroke-linecap='round'%20stroke-linejoin='round'/></svg>"
               >
                 <p>
                   {hasFilters
