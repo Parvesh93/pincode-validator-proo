@@ -64,9 +64,15 @@ export default function App() {
           Export CSV
         </a>
 
+        <Link to="/app/analytics">
+  Analytics
+</Link>
+
         <Link to="/app/settings">
           Settings
         </Link>
+
+        
       </NavMenu>
 
       <Outlet />
