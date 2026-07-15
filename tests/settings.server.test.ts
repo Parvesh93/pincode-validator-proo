@@ -6,6 +6,50 @@ import {
   vi,
 } from "vitest";
 
+
+const popupSettings = {
+  popupEnabled: false,
+
+  popupTitle:
+    "Check Delivery Availability",
+
+  popupDescription:
+    "Enter your pincode to check delivery availability.",
+
+  popupButtonText:
+    "Check Availability",
+
+  popupLocationText:
+    "Use my current location",
+
+  popupTrigger:
+    "delay" as const,
+
+  popupDelaySeconds: 3,
+
+  popupRemember: true,
+  popupRememberDays: 7,
+
+  popupShowClose: true,
+  popupCloseOnOverlay: true,
+
+  popupTheme:
+    "light" as const,
+
+  popupWidth: 420,
+
+  popupShowHome: true,
+  popupShowProduct: true,
+  popupShowCollection: true,
+  popupShowCart: false,
+  popupShowPages: false,
+
+  popupAutoClose: true,
+  popupAutoCloseDelay: 1500,
+
+  locationDetectionEnabled: false,
+};
+
 const prismaMock = vi.hoisted(() => ({
   appSetting: {
     findUnique: vi.fn(),
@@ -129,6 +173,8 @@ describe("settings.server", () => {
           "Delivery unavailable.",
         defaultCountry: "India",
         rememberPincodeDays: 14,
+
+         ...popupSettings,
       };
 
       prismaMock.appSetting.upsert.mockResolvedValue(
@@ -147,41 +193,43 @@ describe("settings.server", () => {
       });
 
       expect(
-        prismaMock.appSetting.upsert,
-      ).toHaveBeenCalledWith({
-        where: {
-          shopId: "shop-1",
-        },
+  prismaMock.appSetting.upsert,
+).toHaveBeenCalledWith({
+  where: {
+    shopId: "shop-1",
+  },
 
-        update: {
-          restrictAddToCart: true,
-          restrictBuyNow: false,
-          enableEmbed: true,
-          enableBlock: true,
-          requireValidation: true,
-          successMessage:
-            "Delivery available.",
-          failureMessage:
-            "Delivery unavailable.",
-          defaultCountry: "India",
-          rememberPincodeDays: 14,
-        },
+  update: {
+    restrictAddToCart: true,
+    restrictBuyNow: false,
+    enableEmbed: true,
+    enableBlock: true,
+    requireValidation: true,
+    successMessage:
+      "Delivery available.",
+    failureMessage:
+      "Delivery unavailable.",
+    defaultCountry: "India",
+    rememberPincodeDays: 14,
+    ...popupSettings,
+  },
 
-        create: {
-          shopId: "shop-1",
-          restrictAddToCart: true,
-          restrictBuyNow: false,
-          enableEmbed: true,
-          enableBlock: true,
-          requireValidation: true,
-          successMessage:
-            "Delivery available.",
-          failureMessage:
-            "Delivery unavailable.",
-          defaultCountry: "India",
-          rememberPincodeDays: 14,
-        },
-      });
+  create: {
+    shopId: "shop-1",
+    restrictAddToCart: true,
+    restrictBuyNow: false,
+    enableEmbed: true,
+    enableBlock: true,
+    requireValidation: true,
+    successMessage:
+      "Delivery available.",
+    failureMessage:
+      "Delivery unavailable.",
+    defaultCountry: "India",
+    rememberPincodeDays: 14,
+    ...popupSettings,
+  },
+});
     });
 
     it("updates settings using the shop ID as the unique key", async () => {
@@ -198,6 +246,7 @@ describe("settings.server", () => {
           "Service is not available.",
         defaultCountry: "India",
         rememberPincodeDays: 30,
+         ...popupSettings,
       };
 
       prismaMock.appSetting.upsert.mockResolvedValue(
@@ -234,6 +283,7 @@ describe("settings.server", () => {
           "Delivery unavailable.",
         defaultCountry: "India",
         rememberPincodeDays: 7,
+         ...popupSettings,
       };
 
       prismaMock.appSetting.upsert.mockResolvedValue(
@@ -301,6 +351,7 @@ describe("settings.server", () => {
           "Delivery unavailable.",
         defaultCountry: undefined,
         rememberPincodeDays: 7,
+         ...popupSettings,
       };
 
       prismaMock.appSetting.upsert.mockResolvedValue(
@@ -343,6 +394,7 @@ describe("settings.server", () => {
           "Delivery unavailable.",
         defaultCountry: null,
         rememberPincodeDays: 7,
+        ...popupSettings,
       };
 
       prismaMock.appSetting.upsert.mockResolvedValue(
@@ -382,6 +434,7 @@ describe("settings.server", () => {
           "Delivery unavailable.",
         defaultCountry: "India",
         rememberPincodeDays: 365,
+         ...popupSettings,
       };
 
       prismaMock.appSetting.upsert.mockResolvedValue(
@@ -417,6 +470,7 @@ describe("settings.server", () => {
           "Delivery unavailable.",
         defaultCountry: "India",
         rememberPincodeDays: 7,
+        ...popupSettings,
       };
 
       prismaMock.appSetting.upsert.mockResolvedValue(
