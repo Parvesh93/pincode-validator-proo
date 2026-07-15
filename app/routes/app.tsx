@@ -68,6 +68,10 @@ export default function App() {
   Analytics
 </Link>
 
+<Link to="/app/logs">
+  Validation Logs
+</Link>
+
         <Link to="/app/settings">
           Settings
         </Link>
