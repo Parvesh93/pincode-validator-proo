@@ -1994,12 +1994,26 @@ var validationSource =
 
   function start() {
   const appEmbedEnabled = document.querySelector(
-    "[data-pincode-validator-app-enabled]",
+    "[data-pincode-validator-app-enabled]"
+  );
+
+  const widgets = document.querySelectorAll(
+    "[data-pincode-validator]"
   );
 
   if (!appEmbedEnabled) {
+    widgets.forEach((widget) => {
+      widget.hidden = true;
+      widget.setAttribute("aria-hidden", "true");
+    });
+
     return;
   }
+
+  widgets.forEach((widget) => {
+    widget.hidden = false;
+    widget.removeAttribute("aria-hidden");
+  });
 
   ensureRestrictionDescription();
   initializeWidgets(document);
