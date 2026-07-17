@@ -1,0 +1,212 @@
+{% comment %}
+  Pincode Validator Pro popup app embed
+{% endcomment %}
+
+<div
+  id="pincode-validator-popup-root"
+  data-pincode-popup-root
+  data-validation-endpoint="/apps/pincode-validator/validate"
+  data-page-type="{{ request.page_type | escape }}"
+  data-product-id="{% if product %}{{ product.id }}{% endif %}"
+  data-product-handle="{% if product %}{{ product.handle | escape }}{% endif %}"
+  data-product-title="{% if product %}{{ product.title | escape }}{% endif %}"
+  hidden
+>
+  <div
+    class="pincode-popup-overlay"
+    data-pincode-popup-overlay
+    aria-hidden="true"
+  >
+    <div
+      class="pincode-popup-dialog"
+      data-pincode-popup-dialog
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pincode-popup-title"
+      aria-describedby="pincode-popup-description"
+      tabindex="-1"
+    >
+      <button
+        type="button"
+        class="pincode-popup-close"
+        data-pincode-popup-close
+        aria-label="Close pincode checker"
+      >
+        <span aria-hidden="true">&times;</span>
+      </button>
+
+      <div class="pincode-popup-icon" aria-hidden="true">
+        <svg
+          width="28"
+          height="28"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M12 21C12 21 19 15.4 19 9.5C19 5.36 15.87 2 12 2C8.13 2 5 5.36 5 9.5C5 15.4 12 21 12 21Z"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <circle
+            cx="12"
+            cy="9.5"
+            r="2.5"
+            stroke="currentColor"
+            stroke-width="1.8"
+          />
+        </svg>
+      </div>
+
+      <h2
+        id="pincode-popup-title"
+        class="pincode-popup-title"
+        data-pincode-popup-title
+      >
+        Check Delivery Availability
+      </h2>
+
+      <p
+        id="pincode-popup-description"
+        class="pincode-popup-description"
+        data-pincode-popup-description
+      >
+        Enter your pincode to check delivery availability.
+      </p>
+
+      <form
+        class="pincode-popup-form"
+        data-pincode-popup-form
+        novalidate
+      >
+        <label
+          class="pincode-popup-label"
+          for="pincode-popup-input"
+        >
+          Pincode
+        </label>
+
+        <div class="pincode-popup-input-row">
+          <input
+            id="pincode-popup-input"
+            class="pincode-popup-input"
+            data-pincode-popup-input
+            type="text"
+            inputmode="numeric"
+            autocomplete="postal-code"
+            maxlength="6"
+            pattern="[0-9]{6}"
+            placeholder="Enter 6-digit pincode"
+            aria-describedby="pincode-popup-message"
+          >
+
+          <button
+            type="submit"
+            class="pincode-popup-submit"
+            data-pincode-popup-submit
+          >
+            <span data-pincode-popup-submit-text>
+              Check Availability
+            </span>
+
+            <span
+              class="pincode-popup-spinner"
+              data-pincode-popup-spinner
+              aria-hidden="true"
+              hidden
+            ></span>
+          </button>
+        </div>
+
+        <button
+          type="button"
+          class="pincode-popup-location"
+          data-pincode-popup-location
+          hidden
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
+            <circle
+              cx="12"
+              cy="12"
+              r="3"
+              stroke="currentColor"
+              stroke-width="1.8"
+            />
+            <path
+              d="M12 2V5M12 19V22M2 12H5M19 12H22"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+            />
+            <circle
+              cx="12"
+              cy="12"
+              r="7"
+              stroke="currentColor"
+              stroke-width="1.8"
+            />
+          </svg>
+
+          <span data-pincode-popup-location-text>
+            Use my current location
+          </span>
+        </button>
+
+        <div
+          id="pincode-popup-message"
+          class="pincode-popup-message"
+          data-pincode-popup-message
+          role="status"
+          aria-live="polite"
+        ></div>
+      </form>
+
+      <div
+        class="pincode-popup-result"
+        data-pincode-popup-result
+        hidden
+      >
+        <div
+          class="pincode-popup-result-icon"
+          data-pincode-popup-result-icon
+          aria-hidden="true"
+        ></div>
+
+        <div class="pincode-popup-result-content">
+          <p
+            class="pincode-popup-result-title"
+            data-pincode-popup-result-title
+          ></p>
+
+          <p
+            class="pincode-popup-result-description"
+            data-pincode-popup-result-description
+          ></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ 'pincode-popup.css' | asset_url | stylesheet_tag }}
+
+<script
+  src="{{ 'pincode-popup.js' | asset_url }}"
+  defer
+></script>
+
+{% schema %}
+{
+  "name": "Pincode popup",
+  "target": "body",
+  "settings": []
+}
+{% endschema %}

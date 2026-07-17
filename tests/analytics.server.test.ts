@@ -90,11 +90,42 @@ const defaultSettings = {
   enableEmbed: true,
   enableBlock: true,
   rememberPincodeDays: 7,
-  successMessage:
-    "Delivery is available.",
-  failureMessage:
-    "Delivery is unavailable.",
+
+  successMessage: "Delivery is available.",
+  failureMessage: "Delivery is unavailable.",
   defaultCountry: "India",
+
+  popupEnabled: false,
+  popupTitle: "Check Delivery Availability",
+  popupDescription:
+    "Enter your pincode to check delivery availability.",
+  popupButtonText: "Check Availability",
+  popupLocationText: "Use my current location",
+
+  popupTrigger: "delay",
+
+  popupDelaySeconds: 3,
+
+  popupRemember: true,
+  popupRememberDays: 7,
+
+  popupShowClose: true,
+  popupCloseOnOverlay: true,
+
+  popupTheme: "light",
+
+  popupWidth: 420,
+
+  popupShowHome: true,
+  popupShowProduct: true,
+  popupShowCollection: true,
+  popupShowCart: false,
+  popupShowPages: false,
+
+  popupAutoClose: true,
+  popupAutoCloseDelay: 1500,
+
+  locationDetectionEnabled: false,
 };
 
 const shopRecord = {
@@ -761,22 +792,54 @@ describe(
       const body =
         await response.json();
 
-      expect(
-        body.settings,
-      ).toEqual({
-        restrictAddToCart: true,
-        restrictBuyNow: true,
-        requireValidation: true,
-        enableEmbed: true,
-        enableBlock: true,
-        rememberPincodeDays: 7,
-        successMessage:
-          "Delivery available for this pincode.",
-        failureMessage:
-          "Sorry, delivery is not available for this pincode.",
-        defaultCountry:
-          "India",
-      });
+     expect(body.settings).toEqual({
+  restrictAddToCart: true,
+  restrictBuyNow: true,
+  requireValidation: true,
+  enableEmbed: true,
+  enableBlock: true,
+  rememberPincodeDays: 7,
+
+  successMessage:
+    "Delivery available for this pincode.",
+
+  failureMessage:
+    "Sorry, delivery is not available for this pincode.",
+
+  defaultCountry: "India",
+
+  popupEnabled: false,
+  popupTitle: "Check Delivery Availability",
+  popupDescription:
+    "Enter your pincode to check delivery availability.",
+  popupButtonText: "Check Availability",
+  popupLocationText: "Use my current location",
+
+  popupTrigger: "delay",
+
+  popupDelaySeconds: 3,
+
+  popupRemember: true,
+  popupRememberDays: 7,
+
+  popupShowClose: true,
+  popupCloseOnOverlay: true,
+
+  popupTheme: "light",
+
+  popupWidth: 420,
+
+  popupShowHome: true,
+  popupShowProduct: true,
+  popupShowCollection: true,
+  popupShowCart: false,
+  popupShowPages: false,
+
+  popupAutoClose: true,
+  popupAutoCloseDelay: 1500,
+
+  locationDetectionEnabled: false,
+});
     });
 
     it("continues validation when analytics logging fails", async () => {

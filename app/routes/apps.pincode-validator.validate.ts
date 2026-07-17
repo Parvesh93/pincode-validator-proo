@@ -13,6 +13,40 @@ type StorefrontSettings = {
   successMessage: string;
   failureMessage: string;
   defaultCountry: string;
+
+  popupEnabled: boolean;
+  popupTitle: string;
+  popupDescription: string;
+  popupButtonText: string;
+  popupLocationText: string;
+
+  popupTrigger:
+    | "immediate"
+    | "delay"
+    | "before_add_to_cart";
+
+  popupDelaySeconds: number;
+  popupRemember: boolean;
+  popupRememberDays: number;
+  popupShowClose: boolean;
+  popupCloseOnOverlay: boolean;
+
+  popupTheme:
+    | "light"
+    | "dark";
+
+  popupWidth: number;
+
+  popupShowHome: boolean;
+  popupShowProduct: boolean;
+  popupShowCollection: boolean;
+  popupShowCart: boolean;
+  popupShowPages: boolean;
+
+  popupAutoClose: boolean;
+  popupAutoCloseDelay: number;
+
+  locationDetectionEnabled: boolean;
 };
 
 type ValidationRequestBody = {
@@ -57,10 +91,48 @@ function getStorefrontSettings(
         successMessage?: string | null;
         failureMessage?: string | null;
         defaultCountry?: string | null;
+
+        popupEnabled?: boolean | null;
+        popupTitle?: string | null;
+        popupDescription?: string | null;
+        popupButtonText?: string | null;
+        popupLocationText?: string | null;
+        popupTrigger?: string | null;
+        popupDelaySeconds?: number | null;
+        popupRemember?: boolean | null;
+        popupRememberDays?: number | null;
+        popupShowClose?: boolean | null;
+        popupCloseOnOverlay?: boolean | null;
+        popupTheme?: string | null;
+        popupWidth?: number | null;
+        popupShowHome?: boolean | null;
+        popupShowProduct?: boolean | null;
+        popupShowCollection?: boolean | null;
+        popupShowCart?: boolean | null;
+        popupShowPages?: boolean | null;
+        popupAutoClose?: boolean | null;
+        popupAutoCloseDelay?: number | null;
+        locationDetectionEnabled?: boolean | null;
       }
     | null
     | undefined,
 ): StorefrontSettings {
+  const popupTrigger:
+    | "immediate"
+    | "delay"
+    | "before_add_to_cart" =
+    settings?.popupTrigger === "immediate" ||
+    settings?.popupTrigger === "before_add_to_cart"
+      ? settings.popupTrigger
+      : "delay";
+
+  const popupTheme:
+    | "light"
+    | "dark" =
+    settings?.popupTheme === "dark"
+      ? "dark"
+      : "light";
+
   return {
     restrictAddToCart:
       settings?.restrictAddToCart ?? true,
@@ -91,6 +163,97 @@ function getStorefrontSettings(
     defaultCountry:
       settings?.defaultCountry?.trim() ||
       "India",
+
+    popupEnabled:
+      settings?.popupEnabled ?? false,
+
+    popupTitle:
+      settings?.popupTitle?.trim() ||
+      "Check Delivery Availability",
+
+    popupDescription:
+      settings?.popupDescription?.trim() ||
+      "Enter your pincode to check delivery availability.",
+
+    popupButtonText:
+      settings?.popupButtonText?.trim() ||
+      "Check Availability",
+
+    popupLocationText:
+      settings?.popupLocationText?.trim() ||
+      "Use my current location",
+
+    popupTrigger,
+
+    popupDelaySeconds:
+      Math.min(
+        60,
+        Math.max(
+          0,
+          settings?.popupDelaySeconds ?? 3,
+        ),
+      ),
+
+    popupRemember:
+      settings?.popupRemember ?? true,
+
+    popupRememberDays:
+      Math.min(
+        365,
+        Math.max(
+          1,
+          settings?.popupRememberDays ?? 7,
+        ),
+      ),
+
+    popupShowClose:
+      settings?.popupShowClose ?? true,
+
+    popupCloseOnOverlay:
+      settings?.popupCloseOnOverlay ?? true,
+
+    popupTheme,
+
+    popupWidth:
+      Math.min(
+        700,
+        Math.max(
+          320,
+          settings?.popupWidth ?? 420,
+        ),
+      ),
+
+    popupShowHome:
+      settings?.popupShowHome ?? true,
+
+    popupShowProduct:
+      settings?.popupShowProduct ?? true,
+
+    popupShowCollection:
+      settings?.popupShowCollection ?? true,
+
+    popupShowCart:
+      settings?.popupShowCart ?? false,
+
+    popupShowPages:
+      settings?.popupShowPages ?? false,
+
+    popupAutoClose:
+      settings?.popupAutoClose ?? true,
+
+    popupAutoCloseDelay:
+      Math.min(
+        10000,
+        Math.max(
+          0,
+          settings?.popupAutoCloseDelay ??
+            1500,
+        ),
+      ),
+
+    locationDetectionEnabled:
+      settings?.locationDetectionEnabled ??
+      false,
   };
 }
 

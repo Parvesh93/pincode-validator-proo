@@ -1,0 +1,874 @@
+/* =========================================================
+   Pincode Validator Pro
+   Storefront Popup
+   ========================================================= */
+
+[data-pincode-popup-root] {
+  --pvp-popup-primary: #111827;
+  --pvp-popup-primary-hover: #000000;
+
+  --pvp-popup-background: #ffffff;
+  --pvp-popup-surface: #f8fafc;
+
+  --pvp-popup-text: #111827;
+  --pvp-popup-muted: #64748b;
+
+  --pvp-popup-border: #e2e8f0;
+  --pvp-popup-input-border: #cbd5e1;
+
+  --pvp-popup-success: #15803d;
+  --pvp-popup-success-background: #f0fdf4;
+  --pvp-popup-success-border: #bbf7d0;
+
+  --pvp-popup-error: #b91c1c;
+  --pvp-popup-error-background: #fef2f2;
+  --pvp-popup-error-border: #fecaca;
+
+  --pvp-popup-info: #1d4ed8;
+  --pvp-popup-info-background: #eff6ff;
+  --pvp-popup-info-border: #bfdbfe;
+
+  --pvp-popup-radius: 24px;
+  --pvp-popup-radius-small: 14px;
+
+  --pvp-popup-shadow:
+    0 30px 80px rgba(15, 23, 42, 0.24),
+    0 10px 30px rgba(15, 23, 42, 0.12);
+
+  position: relative;
+  z-index: 2147483000;
+}
+
+[data-pincode-popup-root][hidden] {
+  display: none !important;
+}
+
+/* =========================================================
+   Overlay
+   ========================================================= */
+
+.pincode-popup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 100%;
+  min-height: 100dvh;
+
+  padding: 24px;
+
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+
+  visibility: hidden;
+  opacity: 0;
+
+  transition:
+    opacity 220ms ease,
+    visibility 220ms ease;
+}
+
+.pincode-popup-overlay[aria-hidden="false"] {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Prevent storefront scrolling while open */
+
+html.pincode-popup-open,
+body.pincode-popup-open {
+  overflow: hidden !important;
+}
+
+/* =========================================================
+   Dialog
+   ========================================================= */
+
+.pincode-popup-dialog {
+  position: relative;
+
+  width: min(
+    var(--pvp-popup-width, 420px),
+    100%
+  );
+
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+
+  padding: 36px;
+
+  color: var(--pvp-popup-text);
+  background: var(--pvp-popup-background);
+
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: var(--pvp-popup-radius);
+
+  box-shadow: var(--pvp-popup-shadow);
+
+  opacity: 0;
+  transform: translateY(18px) scale(0.975);
+
+  transition:
+    opacity 240ms ease,
+    transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pincode-popup-overlay[aria-hidden="false"]
+  .pincode-popup-dialog {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.pincode-popup-dialog:focus {
+  outline: none;
+}
+
+/* Scrollbar */
+
+.pincode-popup-dialog {
+  scrollbar-width: thin;
+  scrollbar-color:
+    var(--pvp-popup-input-border)
+    transparent;
+}
+
+.pincode-popup-dialog::-webkit-scrollbar {
+  width: 6px;
+}
+
+.pincode-popup-dialog::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pincode-popup-dialog::-webkit-scrollbar-thumb {
+  background: var(--pvp-popup-input-border);
+  border-radius: 999px;
+}
+
+/* =========================================================
+   Close button
+   ========================================================= */
+
+.pincode-popup-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 38px;
+  height: 38px;
+
+  padding: 0;
+
+  color: var(--pvp-popup-muted);
+  background: transparent;
+
+  border: 0;
+  border-radius: 999px;
+
+  cursor: pointer;
+
+  transition:
+    color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.pincode-popup-close:hover {
+  color: var(--pvp-popup-text);
+  background: var(--pvp-popup-surface);
+  transform: rotate(3deg);
+}
+
+.pincode-popup-close:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.22);
+  outline-offset: 2px;
+}
+
+.pincode-popup-close span {
+  display: block;
+  font-size: 28px;
+  font-weight: 300;
+  line-height: 1;
+}
+
+/* =========================================================
+   Header icon
+   ========================================================= */
+
+.pincode-popup-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 58px;
+  height: 58px;
+
+  margin-bottom: 22px;
+
+  color: var(--pvp-popup-primary);
+
+  background:
+    linear-gradient(
+      145deg,
+      #ffffff,
+      var(--pvp-popup-surface)
+    );
+
+  border: 1px solid var(--pvp-popup-border);
+  border-radius: 18px;
+
+  box-shadow:
+    0 10px 22px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* =========================================================
+   Typography
+   ========================================================= */
+
+.pincode-popup-title {
+  max-width: calc(100% - 30px);
+
+  margin: 0 0 10px;
+
+  color: var(--pvp-popup-text);
+
+  font-family: inherit;
+  font-size: clamp(24px, 4vw, 30px);
+  font-weight: 700;
+  line-height: 1.18;
+  letter-spacing: -0.025em;
+}
+
+.pincode-popup-description {
+  margin: 0 0 26px;
+
+  color: var(--pvp-popup-muted);
+
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.65;
+}
+
+/* =========================================================
+   Form
+   ========================================================= */
+
+.pincode-popup-form {
+  margin: 0;
+}
+
+.pincode-popup-label {
+  display: block;
+
+  margin-bottom: 8px;
+
+  color: var(--pvp-popup-text);
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.pincode-popup-input-row {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr)
+    auto;
+  gap: 10px;
+  align-items: stretch;
+}
+
+/* Input */
+
+.pincode-popup-input {
+  width: 100%;
+  min-width: 0;
+  min-height: 50px;
+
+  padding: 13px 15px;
+
+  color: var(--pvp-popup-text);
+  background: #ffffff;
+
+  border: 1px solid var(--pvp-popup-input-border);
+  border-radius: var(--pvp-popup-radius-small);
+
+  box-shadow:
+    inset 0 1px 2px rgba(15, 23, 42, 0.03);
+
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+
+  appearance: none;
+  -webkit-appearance: none;
+
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.pincode-popup-input::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.pincode-popup-input:hover {
+  border-color: #94a3b8;
+}
+
+.pincode-popup-input:focus {
+  border-color: #2563eb;
+  outline: none;
+
+  box-shadow:
+    0 0 0 4px rgba(37, 99, 235, 0.12),
+    inset 0 1px 2px rgba(15, 23, 42, 0.03);
+}
+
+.pincode-popup-input[aria-invalid="true"] {
+  border-color: var(--pvp-popup-error);
+
+  box-shadow:
+    0 0 0 4px rgba(185, 28, 28, 0.1);
+}
+
+.pincode-popup-input:disabled {
+  color: #64748b;
+  background: #f8fafc;
+  cursor: not-allowed;
+}
+
+/* Submit button */
+
+.pincode-popup-submit {
+  position: relative;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  min-height: 50px;
+
+  padding: 13px 20px;
+
+  color: #ffffff;
+  background: var(--pvp-popup-primary);
+
+  border: 1px solid var(--pvp-popup-primary);
+  border-radius: var(--pvp-popup-radius-small);
+
+  box-shadow:
+    0 8px 18px rgba(15, 23, 42, 0.18);
+
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.4;
+  white-space: nowrap;
+
+  cursor: pointer;
+
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.pincode-popup-submit:hover:not(:disabled) {
+  background: var(--pvp-popup-primary-hover);
+  border-color: var(--pvp-popup-primary-hover);
+
+  box-shadow:
+    0 10px 22px rgba(15, 23, 42, 0.23);
+
+  transform: translateY(-1px);
+}
+
+.pincode-popup-submit:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.pincode-popup-submit:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.24);
+  outline-offset: 2px;
+}
+
+.pincode-popup-submit:disabled {
+  opacity: 0.68;
+  cursor: wait;
+  transform: none;
+}
+
+/* Spinner */
+
+.pincode-popup-spinner {
+  display: inline-block;
+
+  width: 17px;
+  height: 17px;
+
+  border: 2px solid rgba(255, 255, 255, 0.38);
+  border-top-color: #ffffff;
+  border-radius: 999px;
+
+  animation:
+    pincode-popup-spin
+    700ms linear infinite;
+}
+
+.pincode-popup-spinner[hidden] {
+  display: none !important;
+}
+
+@keyframes pincode-popup-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* =========================================================
+   Location button
+   ========================================================= */
+
+.pincode-popup-location {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+
+  width: auto;
+
+  margin-top: 15px;
+  padding: 0;
+
+  color: var(--pvp-popup-primary);
+  background: transparent;
+
+  border: 0;
+
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+
+  cursor: pointer;
+
+  transition:
+    color 160ms ease,
+    opacity 160ms ease;
+}
+
+.pincode-popup-location:hover {
+  color: var(--pvp-popup-primary-hover);
+}
+
+.pincode-popup-location:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.2);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.pincode-popup-location:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.pincode-popup-location[hidden] {
+  display: none !important;
+}
+
+.pincode-popup-location svg {
+  flex: 0 0 auto;
+}
+
+/* =========================================================
+   Message
+   ========================================================= */
+
+.pincode-popup-message {
+  min-height: 20px;
+
+  margin-top: 12px;
+
+  color: var(--pvp-popup-muted);
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.pincode-popup-message:empty {
+  min-height: 0;
+  margin-top: 0;
+}
+
+.pincode-popup-message.is-error {
+  color: var(--pvp-popup-error);
+}
+
+.pincode-popup-message.is-success {
+  color: var(--pvp-popup-success);
+}
+
+.pincode-popup-message.is-info {
+  color: var(--pvp-popup-info);
+}
+
+/* =========================================================
+   Result box
+   ========================================================= */
+
+.pincode-popup-result {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 13px;
+  align-items: flex-start;
+
+  margin-top: 22px;
+  padding: 16px;
+
+  background: var(--pvp-popup-surface);
+
+  border: 1px solid var(--pvp-popup-border);
+  border-radius: 16px;
+
+  animation:
+    pincode-popup-result-in
+    220ms ease both;
+}
+
+.pincode-popup-result[hidden] {
+  display: none !important;
+}
+
+@keyframes pincode-popup-result-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pincode-popup-result.is-success {
+  background: var(--pvp-popup-success-background);
+  border-color: var(--pvp-popup-success-border);
+}
+
+.pincode-popup-result.is-error {
+  background: var(--pvp-popup-error-background);
+  border-color: var(--pvp-popup-error-border);
+}
+
+.pincode-popup-result.is-info {
+  background: var(--pvp-popup-info-background);
+  border-color: var(--pvp-popup-info-border);
+}
+
+.pincode-popup-result-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 32px;
+  height: 32px;
+
+  color: var(--pvp-popup-muted);
+  background: rgba(255, 255, 255, 0.75);
+
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 999px;
+
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.pincode-popup-result.is-success
+  .pincode-popup-result-icon {
+  color: var(--pvp-popup-success);
+}
+
+.pincode-popup-result.is-error
+  .pincode-popup-result-icon {
+  color: var(--pvp-popup-error);
+}
+
+.pincode-popup-result.is-info
+  .pincode-popup-result-icon {
+  color: var(--pvp-popup-info);
+}
+
+.pincode-popup-result-content {
+  min-width: 0;
+}
+
+.pincode-popup-result-title {
+  margin: 1px 0 4px;
+
+  color: var(--pvp-popup-text);
+
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.pincode-popup-result-description {
+  margin: 0;
+
+  color: var(--pvp-popup-muted);
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.55;
+}
+
+/* =========================================================
+   Dark theme
+   Applied by JavaScript using data-theme="dark"
+   ========================================================= */
+
+[data-pincode-popup-root][data-theme="dark"] {
+  --pvp-popup-primary: #f8fafc;
+  --pvp-popup-primary-hover: #ffffff;
+
+  --pvp-popup-background: #111827;
+  --pvp-popup-surface: #1f2937;
+
+  --pvp-popup-text: #f8fafc;
+  --pvp-popup-muted: #cbd5e1;
+
+  --pvp-popup-border: #334155;
+  --pvp-popup-input-border: #475569;
+
+  --pvp-popup-success: #86efac;
+  --pvp-popup-success-background: rgba(20, 83, 45, 0.4);
+  --pvp-popup-success-border: rgba(134, 239, 172, 0.32);
+
+  --pvp-popup-error: #fca5a5;
+  --pvp-popup-error-background: rgba(127, 29, 29, 0.42);
+  --pvp-popup-error-border: rgba(252, 165, 165, 0.3);
+
+  --pvp-popup-info: #93c5fd;
+  --pvp-popup-info-background: rgba(30, 64, 175, 0.35);
+  --pvp-popup-info-border: rgba(147, 197, 253, 0.3);
+}
+
+[data-pincode-popup-root][data-theme="dark"]
+  .pincode-popup-dialog {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-pincode-popup-root][data-theme="dark"]
+  .pincode-popup-icon {
+  background:
+    linear-gradient(
+      145deg,
+      #1f2937,
+      #111827
+    );
+}
+
+[data-pincode-popup-root][data-theme="dark"]
+  .pincode-popup-input {
+  color: var(--pvp-popup-text);
+  background: #0f172a;
+}
+
+[data-pincode-popup-root][data-theme="dark"]
+  .pincode-popup-input::placeholder {
+  color: #64748b;
+}
+
+[data-pincode-popup-root][data-theme="dark"]
+  .pincode-popup-submit {
+  color: #111827;
+}
+
+[data-pincode-popup-root][data-theme="dark"]
+  .pincode-popup-close:hover {
+  background: #1f2937;
+}
+
+[data-pincode-popup-root][data-theme="dark"]
+  .pincode-popup-result-icon {
+  background: rgba(15, 23, 42, 0.65);
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+/* =========================================================
+   Loading state
+   ========================================================= */
+
+[data-pincode-popup-root][data-loading="true"]
+  .pincode-popup-input {
+  pointer-events: none;
+}
+
+[data-pincode-popup-root][data-loading="true"]
+  .pincode-popup-submit {
+  cursor: wait;
+}
+
+/* =========================================================
+   Mobile
+   ========================================================= */
+
+@media screen and (max-width: 640px) {
+  .pincode-popup-overlay {
+    align-items: flex-end;
+
+    padding:
+      16px
+      12px
+      max(
+        12px,
+        env(safe-area-inset-bottom)
+      );
+  }
+
+  .pincode-popup-dialog {
+    width: 100%;
+    max-height: calc(100dvh - 16px);
+
+    padding:
+      30px
+      20px
+      max(
+        22px,
+        env(safe-area-inset-bottom)
+      );
+
+    border-radius:
+      24px
+      24px
+      18px
+      18px;
+
+    transform:
+      translateY(24px)
+      scale(0.985);
+  }
+
+  .pincode-popup-close {
+    top: 14px;
+    right: 14px;
+  }
+
+  .pincode-popup-icon {
+    width: 52px;
+    height: 52px;
+
+    margin-bottom: 18px;
+
+    border-radius: 16px;
+  }
+
+  .pincode-popup-title {
+    padding-right: 24px;
+
+    font-size: 25px;
+  }
+
+  .pincode-popup-description {
+    margin-bottom: 22px;
+
+    font-size: 14px;
+  }
+
+  .pincode-popup-input-row {
+    grid-template-columns: 1fr;
+  }
+
+  .pincode-popup-input,
+  .pincode-popup-submit {
+    width: 100%;
+    min-height: 52px;
+  }
+
+  .pincode-popup-submit {
+    padding-inline: 18px;
+  }
+
+  .pincode-popup-location {
+    width: 100%;
+    justify-content: center;
+
+    margin-top: 14px;
+  }
+}
+
+/* =========================================================
+   Very small screens
+   ========================================================= */
+
+@media screen and (max-width: 380px) {
+  .pincode-popup-overlay {
+    padding-inline: 8px;
+  }
+
+  .pincode-popup-dialog {
+    padding-inline: 17px;
+  }
+
+  .pincode-popup-title {
+    font-size: 22px;
+  }
+}
+
+/* =========================================================
+   Reduced motion
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .pincode-popup-overlay,
+  .pincode-popup-dialog,
+  .pincode-popup-close,
+  .pincode-popup-input,
+  .pincode-popup-submit,
+  .pincode-popup-location,
+  .pincode-popup-result {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .pincode-popup-spinner {
+    animation-duration: 1.2s;
+  }
+}
+
+/* =========================================================
+   Print
+   ========================================================= */
+
+@media print {
+  [data-pincode-popup-root] {
+    display: none !important;
+  }
+}

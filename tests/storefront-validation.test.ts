@@ -6,24 +6,25 @@ import {
   vi,
 } from "vitest";
 
-const dbMock = vi.hoisted(
-  () => ({
-    shop: {
-      findUnique: vi.fn(),
-    },
+const dbMock = vi.hoisted(() => ({
+  shop: {
+    findUnique: vi.fn(),
+  },
 
-    pincode: {
-      findUnique: vi.fn(),
-    },
-  }),
-);
+  pincode: {
+    findUnique: vi.fn(),
+  },
 
-const authenticateMock =
-  vi.hoisted(() => ({
-    public: {
-      appProxy: vi.fn(),
-    },
-  }));
+  validationLog: {
+    create: vi.fn(),
+  },
+}));
+
+const authenticateMock = vi.hoisted(() => ({
+  public: {
+    appProxy: vi.fn(),
+  },
+}));
 
 vi.mock("../app/db.server", () => ({
   default: dbMock,
@@ -39,18 +40,155 @@ vi.mock(
 
 import { action } from "../app/routes/apps.pincode-validator.validate";
 
+const defaultSettings = {
+  restrictAddToCart: true,
+  restrictBuyNow: true,
+  requireValidation: true,
+  enableEmbed: true,
+  enableBlock: true,
+  rememberPincodeDays: 7,
+
+  successMessage:
+    "Delivery is available.",
+
+  failureMessage:
+    "Delivery is unavailable.",
+
+  defaultCountry: "India",
+
+  popupEnabled: false,
+
+  popupTitle:
+    "Check Delivery Availability",
+
+  popupDescription:
+    "Enter your pincode to check delivery availability.",
+
+  popupButtonText:
+    "Check Availability",
+
+  popupLocationText:
+    "Use my current location",
+
+  popupTrigger:
+    "delay" as const,
+
+  popupDelaySeconds: 3,
+
+  popupRemember: true,
+  popupRememberDays: 7,
+
+  popupShowClose: true,
+  popupCloseOnOverlay: true,
+
+  popupTheme:
+    "light" as const,
+
+  popupWidth: 420,
+
+  popupShowHome: true,
+  popupShowProduct: true,
+  popupShowCollection: true,
+  popupShowCart: false,
+  popupShowPages: false,
+
+  popupAutoClose: true,
+  popupAutoCloseDelay: 1500,
+
+  locationDetectionEnabled: false,
+};
+
+const fallbackSettings = {
+  restrictAddToCart: true,
+  restrictBuyNow: true,
+  requireValidation: true,
+  enableEmbed: true,
+  enableBlock: true,
+  rememberPincodeDays: 7,
+
+  successMessage:
+    "Delivery available for this pincode.",
+
+  failureMessage:
+    "Sorry, delivery is not available for this pincode.",
+
+  defaultCountry: "India",
+
+  popupEnabled: false,
+
+  popupTitle:
+    "Check Delivery Availability",
+
+  popupDescription:
+    "Enter your pincode to check delivery availability.",
+
+  popupButtonText:
+    "Check Availability",
+
+  popupLocationText:
+    "Use my current location",
+
+  popupTrigger:
+    "delay" as const,
+
+  popupDelaySeconds: 3,
+
+  popupRemember: true,
+  popupRememberDays: 7,
+
+  popupShowClose: true,
+  popupCloseOnOverlay: true,
+
+  popupTheme:
+    "light" as const,
+
+  popupWidth: 420,
+
+  popupShowHome: true,
+  popupShowProduct: true,
+  popupShowCollection: true,
+  popupShowCart: false,
+  popupShowPages: false,
+
+  popupAutoClose: true,
+  popupAutoCloseDelay: 1500,
+
+  locationDetectionEnabled: false,
+};
+
+const defaultShopRecord = {
+  id: "shop-record-1",
+
+  shopDomain:
+    "example.myshopify.com",
+
+  settings:
+    defaultSettings,
+};
+
 function createRequest(
   body: unknown,
+  options?: {
+    userAgent?: string;
+  },
 ) {
   return new Request(
     "https://example.myshopify.com/apps/pincode-validator/validate",
     {
       method: "POST",
+
       headers: {
         "Content-Type":
           "application/json",
+
+        "User-Agent":
+          options?.userAgent ??
+          "Vitest Browser",
       },
-      body: JSON.stringify(body),
+
+      body: JSON.stringify(
+        body,
+      ),
     },
   );
 }
@@ -60,10 +198,15 @@ function createInvalidJsonRequest() {
     "https://example.myshopify.com/apps/pincode-validator/validate",
     {
       method: "POST",
+
       headers: {
         "Content-Type":
           "application/json",
+
+        "User-Agent":
+          "Vitest Browser",
       },
+
       body: "{invalid-json",
     },
   );
@@ -76,31 +219,11 @@ async function callAction(
     request,
     params: {},
     context: {},
+
     unstable_pattern:
       "/apps/pincode-validator/validate",
   });
 }
-
-const defaultSettings = {
-  restrictAddToCart: true,
-  restrictBuyNow: true,
-  requireValidation: true,
-  enableEmbed: true,
-  enableBlock: true,
-  rememberPincodeDays: 7,
-  successMessage:
-    "Delivery is available.",
-  failureMessage:
-    "Delivery is unavailable.",
-  defaultCountry: "India",
-};
-
-const shopRecord = {
-  id: "shop-record-1",
-  shopDomain:
-    "example.myshopify.com",
-  settings: defaultSettings,
-};
 
 describe(
   "storefront validation endpoint",
@@ -118,7 +241,17 @@ describe(
       );
 
       dbMock.shop.findUnique.mockResolvedValue(
-        shopRecord,
+        defaultShopRecord,
+      );
+
+      dbMock.pincode.findUnique.mockResolvedValue(
+        null,
+      );
+
+      dbMock.validationLog.create.mockResolvedValue(
+        {
+          id: "validation-log-1",
+        },
       );
     });
 
@@ -128,11 +261,9 @@ describe(
           pincode: "110001",
         });
 
-      dbMock.pincode.findUnique.mockResolvedValue(
-        null,
+      await callAction(
+        request,
       );
-
-      await callAction(request);
 
       expect(
         authenticateMock.public
@@ -157,9 +288,9 @@ describe(
           }),
         );
 
-      expect(response.status).toBe(
-        400,
-      );
+      expect(
+        response.status,
+      ).toBe(400);
 
       await expect(
         response.json(),
@@ -174,6 +305,10 @@ describe(
       expect(
         dbMock.shop.findUnique,
       ).not.toHaveBeenCalled();
+
+      expect(
+        dbMock.validationLog.create,
+      ).not.toHaveBeenCalled();
     });
 
     it("returns 400 for invalid JSON", async () => {
@@ -182,9 +317,9 @@ describe(
           createInvalidJsonRequest(),
         );
 
-      expect(response.status).toBe(
-        400,
-      );
+      expect(
+        response.status,
+      ).toBe(400);
 
       await expect(
         response.json(),
@@ -199,13 +334,13 @@ describe(
       expect(
         dbMock.shop.findUnique,
       ).not.toHaveBeenCalled();
+
+      expect(
+        dbMock.validationLog.create,
+      ).not.toHaveBeenCalled();
     });
 
     it("looks up the authenticated shop domain", async () => {
-      dbMock.pincode.findUnique.mockResolvedValue(
-        null,
-      );
-
       await callAction(
         createRequest({
           pincode: "110001",
@@ -219,6 +354,7 @@ describe(
           shopDomain:
             "example.myshopify.com",
         },
+
         include: {
           settings: true,
         },
@@ -238,9 +374,9 @@ describe(
           }),
         );
 
-      expect(response.status).toBe(
-        404,
-      );
+      expect(
+        response.status,
+      ).toBe(404);
 
       await expect(
         response.json(),
@@ -251,41 +387,56 @@ describe(
           "Shop record not found",
         settings: null,
       });
+
+      expect(
+        dbMock.validationLog.create,
+      ).not.toHaveBeenCalled();
     });
 
-    it("returns settings with a missing-pincode response", async () => {
+    it("returns settings with a missing-pincode response without logging it", async () => {
       const response =
         await callAction(
           createRequest({
             pincode: "",
+
+            source:
+              "popup-settings-load",
           }),
         );
 
-      expect(response.status).toBe(
-        400,
-      );
+      expect(
+        response.status,
+      ).toBe(400);
 
       const body =
         await response.json();
 
-      expect(body).toMatchObject({
+      expect(body).toEqual({
         valid: false,
         available: false,
         pincode: "",
+
         message:
           "Pincode is required",
+
         codAvailable: false,
         prepaidAvailable: false,
         estDeliveryDays: null,
+
         city: null,
         state: null,
         country: "India",
+
         settings:
           defaultSettings,
       });
 
       expect(
         dbMock.pincode.findUnique,
+      ).not.toHaveBeenCalled();
+
+      expect(
+        dbMock.validationLog.create,
       ).not.toHaveBeenCalled();
     });
 
@@ -303,6 +454,18 @@ describe(
           await callAction(
             createRequest({
               pincode,
+
+              productId:
+                "product-1",
+
+              productHandle:
+                "sample-product",
+
+              productTitle:
+                "Sample Product",
+
+              source:
+                "product-page",
             }),
           );
 
@@ -313,26 +476,81 @@ describe(
         const body =
           await response.json();
 
-        expect(body).toMatchObject({
+        expect(body).toEqual({
           valid: false,
           available: false,
           pincode,
+
           message:
             "Please enter a valid 6-digit Indian pincode",
+
+          codAvailable: false,
+          prepaidAvailable: false,
+          estDeliveryDays: null,
+
+          city: null,
+          state: null,
+          country: "India",
+
+          settings:
+            defaultSettings,
         });
 
         expect(
           dbMock.pincode
             .findUnique,
         ).not.toHaveBeenCalled();
+
+        expect(
+          dbMock.validationLog.create,
+        ).toHaveBeenCalledWith({
+          data:
+            expect.objectContaining({
+              shopId:
+                "shop-record-1",
+
+              pincode,
+
+              result:
+                "invalid",
+
+              isAvailable:
+                false,
+
+              city: null,
+              state: null,
+              country:
+                "India",
+
+              productId:
+                "product-1",
+
+              productHandle:
+                "sample-product",
+
+              productTitle:
+                "Sample Product",
+
+              codAvailable:
+                false,
+
+              prepaidAvailable:
+                false,
+
+              estDeliveryDays:
+                null,
+
+              source:
+                "product-page",
+
+              userAgent:
+                "Vitest Browser",
+            }),
+        });
       },
     );
 
     it("queries a pincode using both shop ID and pincode", async () => {
-      dbMock.pincode.findUnique.mockResolvedValue(
-        null,
-      );
-
       await callAction(
         createRequest({
           pincode: "110001",
@@ -346,6 +564,7 @@ describe(
           shopId_pincode: {
             shopId:
               "shop-record-1",
+
             pincode:
               "110001",
           },
@@ -363,48 +582,131 @@ describe(
           createRequest({
             pincode:
               "110001",
+
+            productId:
+              "product-1",
+
+            productHandle:
+              "sample-product",
+
+            productTitle:
+              "Sample Product",
+
+            source:
+              "product-page",
           }),
         );
 
-      expect(response.status).toBe(
-        200,
-      );
+      expect(
+        response.status,
+      ).toBe(200);
 
       const body =
         await response.json();
 
-      expect(body).toMatchObject({
+      expect(body).toEqual({
         valid: false,
         available: false,
-        pincode: "110001",
+
+        pincode:
+          "110001",
+
         message:
           "Delivery is unavailable.",
+
         codAvailable: false,
         prepaidAvailable: false,
         estDeliveryDays: null,
+
         city: null,
         state: null,
         country: "India",
+
         settings:
           defaultSettings,
+      });
+
+      expect(
+        dbMock.validationLog.create,
+      ).toHaveBeenCalledWith({
+        data:
+          expect.objectContaining({
+            shopId:
+              "shop-record-1",
+
+            pincode:
+              "110001",
+
+            result:
+              "unavailable",
+
+            isAvailable:
+              false,
+
+            city: null,
+            state: null,
+            country:
+              "India",
+
+            productId:
+              "product-1",
+
+            productHandle:
+              "sample-product",
+
+            productTitle:
+              "Sample Product",
+
+            codAvailable:
+              false,
+
+            prepaidAvailable:
+              false,
+
+            estDeliveryDays:
+              null,
+
+            source:
+              "product-page",
+
+            userAgent:
+              "Vitest Browser",
+          }),
       });
     });
 
     it("returns unavailable for an inactive pincode", async () => {
       dbMock.pincode.findUnique.mockResolvedValue(
         {
-          id: "pincode-1",
+          id:
+            "pincode-1",
+
           shopId:
             "shop-record-1",
+
           pincode:
             "110001",
-          city: "Delhi",
-          state: "Delhi",
-          country: "India",
-          codAvailable: true,
-          prepaidAvailable: true,
-          estDeliveryDays: 2,
-          isActive: false,
+
+          city:
+            "Delhi",
+
+          state:
+            "Delhi",
+
+          country:
+            "India",
+
+          codAvailable:
+            true,
+
+          prepaidAvailable:
+            true,
+
+          estDeliveryDays:
+            2,
+
+          isActive:
+            false,
         },
       );
 
@@ -416,35 +718,113 @@ describe(
           }),
         );
 
+      expect(
+        response.status,
+      ).toBe(200);
+
       const body =
         await response.json();
 
-      expect(body).toMatchObject({
+      expect(body).toEqual({
         valid: false,
         available: false,
+
+        pincode:
+          "110001",
+
         message:
           "Delivery is unavailable.",
-        city: "Delhi",
-        state: "Delhi",
-        country: "India",
+
+        codAvailable: false,
+        prepaidAvailable: false,
+        estDeliveryDays: null,
+
+        city:
+          "Delhi",
+
+        state:
+          "Delhi",
+
+        country:
+          "India",
+
+        settings:
+          defaultSettings,
+      });
+
+      expect(
+        dbMock.validationLog.create,
+      ).toHaveBeenCalledWith({
+        data:
+          expect.objectContaining({
+            shopId:
+              "shop-record-1",
+
+            pincode:
+              "110001",
+
+            result:
+              "inactive",
+
+            isAvailable:
+              false,
+
+            city:
+              "Delhi",
+
+            state:
+              "Delhi",
+
+            country:
+              "India",
+
+            codAvailable:
+              true,
+
+            prepaidAvailable:
+              true,
+
+            estDeliveryDays:
+              2,
+
+            source:
+              "storefront",
+          }),
       });
     });
 
     it("returns unavailable when prepaid delivery is disabled", async () => {
       dbMock.pincode.findUnique.mockResolvedValue(
         {
-          id: "pincode-1",
+          id:
+            "pincode-1",
+
           shopId:
             "shop-record-1",
+
           pincode:
             "110001",
-          city: "Delhi",
-          state: "Delhi",
-          country: "India",
-          codAvailable: true,
-          prepaidAvailable: false,
-          estDeliveryDays: 2,
-          isActive: true,
+
+          city:
+            "Delhi",
+
+          state:
+            "Delhi",
+
+          country:
+            "India",
+
+          codAvailable:
+            true,
+
+          prepaidAvailable:
+            false,
+
+          estDeliveryDays:
+            2,
+
+          isActive:
+            true,
         },
       );
 
@@ -456,33 +836,113 @@ describe(
           }),
         );
 
+      expect(
+        response.status,
+      ).toBe(200);
+
       const body =
         await response.json();
 
-      expect(body).toMatchObject({
+      expect(body).toEqual({
         valid: false,
         available: false,
+
+        pincode:
+          "110001",
+
+        message:
+          "Delivery is unavailable.",
+
         codAvailable: false,
         prepaidAvailable: false,
         estDeliveryDays: null,
+
+        city:
+          "Delhi",
+
+        state:
+          "Delhi",
+
+        country:
+          "India",
+
+        settings:
+          defaultSettings,
+      });
+
+      expect(
+        dbMock.validationLog.create,
+      ).toHaveBeenCalledWith({
+        data:
+          expect.objectContaining({
+            shopId:
+              "shop-record-1",
+
+            pincode:
+              "110001",
+
+            result:
+              "prepaid_unavailable",
+
+            isAvailable:
+              false,
+
+            city:
+              "Delhi",
+
+            state:
+              "Delhi",
+
+            country:
+              "India",
+
+            codAvailable:
+              true,
+
+            prepaidAvailable:
+              false,
+
+            estDeliveryDays:
+              2,
+
+            source:
+              "storefront",
+          }),
       });
     });
 
     it("returns full availability details for a valid active pincode", async () => {
       dbMock.pincode.findUnique.mockResolvedValue(
         {
-          id: "pincode-1",
+          id:
+            "pincode-1",
+
           shopId:
             "shop-record-1",
+
           pincode:
             "110001",
-          city: "Delhi",
-          state: "Delhi",
-          country: "India",
-          codAvailable: true,
-          prepaidAvailable: true,
-          estDeliveryDays: 2,
-          isActive: true,
+
+          city:
+            "Delhi",
+
+          state:
+            "Delhi",
+
+          country:
+            "India",
+
+          codAvailable:
+            true,
+
+          prepaidAvailable:
+            true,
+
+          estDeliveryDays:
+            2,
+
+          isActive:
+            true,
         },
       );
 
@@ -491,47 +951,143 @@ describe(
           createRequest({
             pincode:
               "110001",
+
+            productId:
+              "product-1",
+
+            productHandle:
+              "sample-product",
+
+            productTitle:
+              "Sample Product",
+
+            source:
+              "product-page",
           }),
         );
 
-      expect(response.status).toBe(
-        200,
-      );
+      expect(
+        response.status,
+      ).toBe(200);
 
       await expect(
         response.json(),
       ).resolves.toEqual({
         valid: true,
         available: true,
-        pincode: "110001",
+
+        pincode:
+          "110001",
+
         message:
           "Delivery is available.",
-        codAvailable: true,
-        prepaidAvailable: true,
-        estDeliveryDays: 2,
-        city: "Delhi",
-        state: "Delhi",
-        country: "India",
+
+        codAvailable:
+          true,
+
+        prepaidAvailable:
+          true,
+
+        estDeliveryDays:
+          2,
+
+        city:
+          "Delhi",
+
+        state:
+          "Delhi",
+
+        country:
+          "India",
+
         settings:
           defaultSettings,
+      });
+
+      expect(
+        dbMock.validationLog.create,
+      ).toHaveBeenCalledWith({
+        data:
+          expect.objectContaining({
+            shopId:
+              "shop-record-1",
+
+            pincode:
+              "110001",
+
+            result:
+              "available",
+
+            isAvailable:
+              true,
+
+            city:
+              "Delhi",
+
+            state:
+              "Delhi",
+
+            country:
+              "India",
+
+            productId:
+              "product-1",
+
+            productHandle:
+              "sample-product",
+
+            productTitle:
+              "Sample Product",
+
+            codAvailable:
+              true,
+
+            prepaidAvailable:
+              true,
+
+            estDeliveryDays:
+              2,
+
+            source:
+              "product-page",
+
+            userAgent:
+              "Vitest Browser",
+          }),
       });
     });
 
     it("uses the default country when the record country is empty", async () => {
       dbMock.pincode.findUnique.mockResolvedValue(
         {
-          id: "pincode-1",
+          id:
+            "pincode-1",
+
           shopId:
             "shop-record-1",
+
           pincode:
             "110001",
-          city: "Delhi",
-          state: "Delhi",
+
+          city:
+            "Delhi",
+
+          state:
+            "Delhi",
+
           country: null,
-          codAvailable: false,
-          prepaidAvailable: true,
-          estDeliveryDays: 3,
-          isActive: true,
+
+          codAvailable:
+            false,
+
+          prepaidAvailable:
+            true,
+
+          estDeliveryDays:
+            3,
+
+          isActive:
+            true,
         },
       );
 
@@ -546,15 +1102,26 @@ describe(
       const body =
         await response.json();
 
-      expect(body.country).toBe(
-        "India",
-      );
+      expect(
+        body.country,
+      ).toBe("India");
+
+      expect(
+        dbMock.validationLog.create,
+      ).toHaveBeenCalledWith({
+        data:
+          expect.objectContaining({
+            country:
+              "India",
+          }),
+      });
     });
 
     it("uses safe defaults when shop settings do not exist", async () => {
       dbMock.shop.findUnique.mockResolvedValue(
         {
-          ...shopRecord,
+          ...defaultShopRecord,
+
           settings: null,
         },
       );
@@ -571,23 +1138,30 @@ describe(
           }),
         );
 
+      expect(
+        response.status,
+      ).toBe(200);
+
       const body =
         await response.json();
 
       expect(
         body.settings,
-      ).toEqual({
-        restrictAddToCart: true,
-        restrictBuyNow: true,
-        requireValidation: true,
-        enableEmbed: true,
-        enableBlock: true,
-        rememberPincodeDays: 7,
-        successMessage:
-          "Delivery available for this pincode.",
-        failureMessage:
+      ).toEqual(
+        fallbackSettings,
+      );
+
+      expect(body).toMatchObject({
+        valid: false,
+        available: false,
+
+        pincode:
+          "110001",
+
+        message:
           "Sorry, delivery is not available for this pincode.",
-        defaultCountry:
+
+        country:
           "India",
       });
     });
@@ -599,6 +1173,16 @@ describe(
         ),
       );
 
+      const consoleErrorSpy =
+        vi
+          .spyOn(
+            console,
+            "error",
+          )
+          .mockImplementation(
+            () => {},
+          );
+
       const response =
         await callAction(
           createRequest({
@@ -607,9 +1191,9 @@ describe(
           }),
         );
 
-      expect(response.status).toBe(
-        500,
-      );
+      expect(
+        response.status,
+      ).toBe(500);
 
       const body =
         await response.json();
@@ -617,8 +1201,10 @@ describe(
       expect(body).toEqual({
         valid: false,
         available: false,
+
         message:
           "Pincode validation could not be completed. Please try again.",
+
         settings: null,
       });
 
@@ -627,6 +1213,12 @@ describe(
       ).not.toContain(
         "password=secret",
       );
+
+      expect(
+        consoleErrorSpy,
+      ).toHaveBeenCalled();
+
+      consoleErrorSpy.mockRestore();
     });
 
     it("does not return a pincode belonging to a different shop", async () => {
@@ -636,7 +1228,8 @@ describe(
 
       await callAction(
         createRequest({
-          pincode: "400001",
+          pincode:
+            "400001",
         }),
       );
 
@@ -647,10 +1240,55 @@ describe(
           shopId_pincode: {
             shopId:
               "shop-record-1",
+
             pincode:
               "400001",
           },
         },
+      });
+    });
+
+    it("normalizes analytics request context", async () => {
+      dbMock.pincode.findUnique.mockResolvedValue(
+        null,
+      );
+
+      await callAction(
+        createRequest({
+          pincode:
+            "110001",
+
+          productId:
+            " product-123 ",
+
+          productHandle:
+            " sample-handle ",
+
+          productTitle:
+            " Sample Product ",
+
+          source:
+            "Product Page Custom",
+        }),
+      );
+
+      expect(
+        dbMock.validationLog.create,
+      ).toHaveBeenCalledWith({
+        data:
+          expect.objectContaining({
+            productId:
+              "product-123",
+
+            productHandle:
+              "sample-handle",
+
+            productTitle:
+              "Sample Product",
+
+            source:
+              "product-page-custom",
+          }),
       });
     });
   },
