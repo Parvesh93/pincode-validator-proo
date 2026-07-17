@@ -836,6 +836,8 @@
 
         const body = await response.json().catch(() => null);
 
+        console.log("Location API Response:", body);
+
         if (!body || typeof body !== "object") {
           throw new Error("Invalid validation response");
         }
@@ -877,6 +879,8 @@
       }
     }
 
+    
+
     async function loadSettings() {
       try {
         const response = await fetch(endpoint, {
@@ -893,7 +897,11 @@
             pincode: "",
             source: "popup-settings-load",
           }),
-        });
+
+          
+
+        }
+      );
 
         const body = await response.json().catch(() => null);
 
@@ -1111,6 +1119,10 @@ if (
     "Your location is not accurate enough to detect the correct pincode. Please enter it manually.",
   );
 }
+
+console.log("Latitude:", position.coords.latitude);
+console.log("Longitude:", position.coords.longitude);
+console.log("Accuracy:", position.coords.accuracy);
 
         const pincode = normalizePincode(
           body.pincode,
