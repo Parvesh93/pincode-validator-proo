@@ -1,6 +1,6 @@
 import "@shopify/polaris/build/esm/styles.css";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   AppProvider,
@@ -311,6 +311,13 @@ export async function action({
 
   const formData =
     await request.formData();
+
+  console.log(
+    "[Settings] Submitted values:",
+    Object.fromEntries(
+      formData.entries(),
+    ),
+  );
 
   try {
     const successMessage =
@@ -715,7 +722,8 @@ export async function action({
       );
     }
 
-    await upsertSettings({
+    const savedSettings =
+      await upsertSettings({
       shopId: shop.id,
 
       restrictAddToCart:
@@ -819,6 +827,11 @@ export async function action({
           ),
         ),
     });
+
+    console.log(
+      "[Settings] Saved record:",
+      savedSettings,
+    );
 
     return data<ActionData>({
       success:
@@ -1082,6 +1095,40 @@ export default function SettingsPage() {
     settings.locationDetectionEnabled,
   );
 
+
+  useEffect(() => {
+    setRequireValidation(settings.requireValidation);
+    setRestrictAddToCart(settings.restrictAddToCart);
+    setRestrictBuyNow(settings.restrictBuyNow);
+    setEnableEmbed(settings.enableEmbed);
+    setEnableBlock(settings.enableBlock);
+    setSuccessMessage(settings.successMessage);
+    setFailureMessage(settings.failureMessage);
+    setDefaultCountry(settings.defaultCountry);
+    setRememberPincodeDays(String(settings.rememberPincodeDays));
+    setPopupEnabled(settings.popupEnabled);
+    setPopupTitle(settings.popupTitle);
+    setPopupDescription(settings.popupDescription);
+    setPopupButtonText(settings.popupButtonText);
+    setPopupLocationText(settings.popupLocationText);
+    setPopupTrigger(settings.popupTrigger);
+    setPopupDelaySeconds(String(settings.popupDelaySeconds));
+    setPopupRemember(settings.popupRemember);
+    setPopupRememberDays(String(settings.popupRememberDays));
+    setPopupShowClose(settings.popupShowClose);
+    setPopupCloseOnOverlay(settings.popupCloseOnOverlay);
+    setPopupTheme(settings.popupTheme);
+    setPopupWidth(String(settings.popupWidth));
+    setPopupShowHome(settings.popupShowHome);
+    setPopupShowProduct(settings.popupShowProduct);
+    setPopupShowCollection(settings.popupShowCollection);
+    setPopupShowCart(settings.popupShowCart);
+    setPopupShowPages(settings.popupShowPages);
+    setPopupAutoClose(settings.popupAutoClose);
+    setPopupAutoCloseDelay(String(settings.popupAutoCloseDelay));
+    setLocationDetectionEnabled(settings.locationDetectionEnabled);
+  }, [settings]);
+
   const values: SettingsFormValues = {
     restrictAddToCart,
     restrictBuyNow,
@@ -1217,6 +1264,166 @@ export default function SettingsPage() {
           </Layout.Section>
 
           <Form method="post">
+            <input
+              type="hidden"
+              name="requireValidation"
+              value={
+                requireValidation
+                  ? "true"
+                  : "false"
+              }
+            />
+
+            <input
+              type="hidden"
+              name="restrictAddToCart"
+              value={
+                restrictAddToCart
+                  ? "true"
+                  : "false"
+              }
+            />
+
+            <input
+              type="hidden"
+              name="restrictBuyNow"
+              value={
+                restrictBuyNow
+                  ? "true"
+                  : "false"
+              }
+            />
+
+            <input
+              type="hidden"
+              name="enableEmbed"
+              value={
+                enableEmbed
+                  ? "true"
+                  : "false"
+              }
+            />
+
+            <input
+              type="hidden"
+              name="enableBlock"
+              value={
+                enableBlock
+                  ? "true"
+                  : "false"
+              }
+            />
+
+            <input
+              type="hidden"
+              name="popupEnabled"
+              value={
+                popupEnabled
+                  ? "true"
+                  : "false"
+              }
+            />
+
+            <input
+              type="hidden"
+              name="popupRemember"
+              value={
+                popupRemember
+                  ? "true"
+                  : "false"
+              }
+            />
+
+            <input
+              type="hidden"
+              name="popupShowClose"
+              value={
+                popupShowClose
+                  ? "true"
+                  : "false"
+              }
+            />
+
+            <input
+              type="hidden"
+              name="popupCloseOnOverlay"
+              value={
+                popupCloseOnOverlay
+                  ? "true"
+                  : "false"
+              }
+            />
+
+            <input
+              type="hidden"
+              name="popupShowHome"
+              value={
+                popupShowHome
+                  ? "true"
+                  : "false"
+              }
+            />
+
+            <input
+              type="hidden"
+              name="popupShowProduct"
+              value={
+                popupShowProduct
+                  ? "true"
+                  : "false"
+              }
+            />
+
+            <input
+              type="hidden"
+              name="popupShowCollection"
+              value={
+                popupShowCollection
+                  ? "true"
+                  : "false"
+              }
+            />
+
+            <input
+              type="hidden"
+              name="popupShowCart"
+              value={
+                popupShowCart
+                  ? "true"
+                  : "false"
+              }
+            />
+
+            <input
+              type="hidden"
+              name="popupShowPages"
+              value={
+                popupShowPages
+                  ? "true"
+                  : "false"
+              }
+            />
+
+            <input
+              type="hidden"
+              name="popupAutoClose"
+              value={
+                popupAutoClose
+                  ? "true"
+                  : "false"
+              }
+            />
+
+            <input
+              type="hidden"
+              name="locationDetectionEnabled"
+              value={
+                locationDetectionEnabled
+                  ? "true"
+                  : "false"
+              }
+            />
+
             <Layout>
               <Layout.Section>
                 <ValidationSettings
