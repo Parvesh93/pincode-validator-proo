@@ -1070,8 +1070,9 @@
           credentials: "same-origin",
 
           body: JSON.stringify({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
+             latitude: position.coords.latitude,
+  longitude: position.coords.longitude,
+  accuracy: position.coords.accuracy,
           }),
         });
 
@@ -1099,6 +1100,17 @@
             ),
           );
         }
+
+        const accuracy = position.coords.accuracy;
+
+if (
+  Number.isFinite(accuracy) &&
+  accuracy > 1000
+) {
+  throw new Error(
+    "Your location is not accurate enough to detect the correct pincode. Please enter it manually.",
+  );
+}
 
         const pincode = normalizePincode(
           body.pincode,
@@ -1172,10 +1184,10 @@
     },
 
     {
-      enableHighAccuracy: false,
-      timeout: 10000,
-      maximumAge: 300000,
-    },
+  enableHighAccuracy: true,
+  timeout: 20000,
+  maximumAge: 0,
+},
   );
 }
 
