@@ -1023,111 +1023,161 @@
     }
 
     function handleLocationClick() {
-      if (
-        isLoading ||
-        !settings.locationDetectionEnabled
-      ) {
-        return;
-      }
+  if (
+    isLoading ||
+    !settings.locationDetectionEnabled
+  ) {
+    return;
+  }
 
-      if (!("geolocation" in navigator)) {
+  if (!("geolocation" in navigator)) {
+    setMessage(
+      "Location detection is not supported by this browser.",
+      "error",
+    );
+    return;
+  }
+
+  setMessage(
+    "Detecting your current location…",
+    "info",
+  );
+
+  hideResult();
+  elements.location.disabled = true;
+
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      setMessage(
+        "Location detected. Finding your pincode…",
+        "info",
+      );
+
+      try {
+        const locationEndpoint = endpoint.replace(
+          /\/validate\/?$/,
+          "/location",
+        );
+
+        const response = await fetch(locationEndpoint, {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+
+          credentials: "same-origin",
+
+          body: JSON.stringify({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          }),
+        });
+
+        const body = await response
+          .json()
+          .catch(() => null);
+
+        if (
+          !body ||
+          typeof body !== "object"
+        ) {
+          throw new Error(
+            "Invalid location response",
+          );
+        }
+
+        if (
+          !response.ok ||
+          body.success !== true
+        ) {
+          throw new Error(
+            normalizeString(
+              body.message,
+              "Unable to detect your pincode.",
+            ),
+          );
+        }
+
+        const pincode = normalizePincode(
+          body.pincode,
+        );
+
+        if (!isValidPincode(pincode)) {
+          throw new Error(
+            "A valid pincode could not be found for your location.",
+          );
+        }
+
+        elements.input.value = pincode;
+
+        elements.input.setAttribute(
+          "aria-invalid",
+          "false",
+        );
+
+        setMessage("", "");
+
+        dispatchStorefrontEvent(
+          "pincode-validator:location-detected",
+          {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            pincode,
+            city: body.city ?? null,
+            state: body.state ?? null,
+            country: body.country ?? null,
+          },
+        );
+
+        await validatePincode(pincode);
+      } catch (error) {
+        console.error(
+          "[Pincode Validator] Reverse geocoding failed:",
+          error,
+        );
+
         setMessage(
-          "Location detection is not supported by this browser.",
+          error instanceof Error
+            ? error.message
+            : "Unable to detect your pincode.",
           "error",
         );
-        return;
+      } finally {
+        elements.location.disabled = false;
+      }
+    },
+
+    (error) => {
+      let message =
+        "We could not access your current location.";
+
+      if (error.code === error.PERMISSION_DENIED) {
+        message =
+          "Location permission was denied. Please enter your pincode manually.";
+      } else if (
+        error.code === error.POSITION_UNAVAILABLE
+      ) {
+        message =
+          "Your current location could not be determined.";
+      } else if (error.code === error.TIMEOUT) {
+        message =
+          "Location detection timed out. Please try again.";
       }
 
-      setMessage("Detecting your current location…", "info");
-      hideResult();
+      setMessage(message, "error");
+      elements.location.disabled = false;
+    },
 
-      elements.location.disabled = true;
-
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setMessage(
-            "Location detected. Finding your pincode…",
-            "info",
-          );
-
-          dispatchStorefrontEvent(
-            "pincode-validator:location-detected",
-            {
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-              accuracy: position.coords.accuracy,
-              fillPincode(pincode) {
-                const normalized = normalizePincode(pincode);
-
-                if (!isValidPincode(normalized)) {
-                  setMessage(
-                    "A pincode could not be found for this location.",
-                    "error",
-                  );
-
-                  elements.location.disabled = false;
-                  return;
-                }
-
-                elements.input.value = normalized;
-                elements.input.setAttribute(
-                  "aria-invalid",
-                  "false",
-                );
-
-                setMessage("", "");
-                elements.location.disabled = false;
-
-                validatePincode(normalized);
-              },
-              fail(message) {
-                setMessage(
-                  normalizeString(
-                    message,
-                    "A pincode could not be found for this location.",
-                  ),
-                  "error",
-                );
-
-                elements.location.disabled = false;
-              },
-            },
-          );
-
-          /*
-           * Reverse geocoding will be connected in the next step.
-           * A listener can currently respond to
-           * "pincode-validator:location-detected" and call
-           * detail.fillPincode("110001").
-           */
-        },
-
-        (error) => {
-          let message =
-            "We could not access your current location.";
-
-          if (error.code === error.PERMISSION_DENIED) {
-            message =
-              "Location permission was denied. Please enter your pincode manually.";
-          } else if (error.code === error.POSITION_UNAVAILABLE) {
-            message =
-              "Your current location could not be determined.";
-          } else if (error.code === error.TIMEOUT) {
-            message =
-              "Location detection timed out. Please try again.";
-          }
-
-          setMessage(message, "error");
-          elements.location.disabled = false;
-        },
-
-        {
-          enableHighAccuracy: false,
-          timeout: 10000,
-          maximumAge: 300000,
-        },
-      );
-    }
+    {
+      enableHighAccuracy: false,
+      timeout: 10000,
+      maximumAge: 300000,
+    },
+  );
+}
 
     function bindEvents() {
       elements.form.addEventListener(
