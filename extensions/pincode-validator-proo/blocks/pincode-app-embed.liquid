@@ -1,0 +1,15 @@
+<div
+  data-pincode-validator-app-enabled
+  data-page-type="{{ request.page_type | escape }}"
+  data-product-id="{{ product.id | default: '' }}"
+  data-product-handle="{{ product.handle | default: '' | escape }}"
+  hidden
+></div>
+
+{% schema %}
+{
+  "name": "Pincode Validator",
+  "target": "body",
+  "settings": []
+}
+{% endschema %}

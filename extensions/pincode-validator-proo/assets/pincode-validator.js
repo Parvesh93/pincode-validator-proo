@@ -1983,14 +1983,31 @@ var validationSource =
     }
   }
 
+  // function start() {
+  //   ensureRestrictionDescription();
+  //   initializeWidgets(document);
+  //   attachGlobalEvents();
+  //   startMutationObserver();
+  //   restoreRememberedPincode();
+  //   scheduleRefresh(100);
+  // }
+
   function start() {
-    ensureRestrictionDescription();
-    initializeWidgets(document);
-    attachGlobalEvents();
-    startMutationObserver();
-    restoreRememberedPincode();
-    scheduleRefresh(100);
+  const appEmbedEnabled = document.querySelector(
+    "[data-pincode-validator-app-enabled]",
+  );
+
+  if (!appEmbedEnabled) {
+    return;
   }
+
+  ensureRestrictionDescription();
+  initializeWidgets(document);
+  attachGlobalEvents();
+  startMutationObserver();
+  restoreRememberedPincode();
+  scheduleRefresh(100);
+}
 
   if (document.readyState === "loading") {
     document.addEventListener(

@@ -1190,7 +1190,17 @@
       );
     }
 
-    async function start() {
+    async function start() 
+    {
+
+      const appEmbedEnabled = document.querySelector(
+    "[data-pincode-validator-app-enabled]",
+  );
+
+  if (!appEmbedEnabled) {
+    return;
+  }
+
       bindEvents();
 
       const settingsLoaded = await loadSettings();
