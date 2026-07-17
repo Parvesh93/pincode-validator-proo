@@ -1,4 +1,5 @@
 import type { ActionFunctionArgs } from "react-router";
+import { getOrCreateShopByDomain } from "../lib/pincode.server";
 
 import db from "../db.server";
 import { authenticate } from "../shopify.server";
@@ -472,31 +473,26 @@ export async function action({
     const userAgent =
       getUserAgent(request);
 
-    const shopRecord =
-      await db.shop.findUnique({
-        where: {
-          shopDomain:
-            session.shop,
-        },
-        include: {
-          settings: true,
-        },
-      });
+    await getOrCreateShopByDomain(
+  session.shop,
+);
 
-    if (!shopRecord) {
-      return Response.json(
-        {
-          valid: false,
-          available: false,
-          message:
-            "Shop record not found",
-          settings: null,
-        },
-        {
-          status: 404,
-        },
-      );
-    }
+const shopRecord =
+  await db.shop.findUnique({
+    where: {
+      shopDomain:
+        session.shop,
+    },
+    include: {
+      settings: true,
+    },
+  });
+
+if (!shopRecord) {
+  throw new Error(
+    `Unable to create or retrieve shop record for ${session.shop}`,
+  );
+}
 
     const settings =
       getStorefrontSettings(
