@@ -14,7 +14,6 @@ export function SettingsSummary({
   restrictAddToCart,
   restrictBuyNow,
   popupEnabled,
-  locationDetectionEnabled,
   rememberPincodeDays,
 }: SettingsSummaryProps) {
   return (
@@ -92,11 +91,11 @@ export function SettingsSummary({
               Location detection
             </span>
 
-            <strong>
+            {/* <strong>
               {locationDetectionEnabled
                 ? "Enabled"
                 : "Disabled"}
-            </strong>
+            </strong> */}
           </div>
 
           <div className="settings-summary-row">

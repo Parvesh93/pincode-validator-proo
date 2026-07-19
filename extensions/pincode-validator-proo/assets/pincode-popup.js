@@ -1156,7 +1156,13 @@ console.log("Accuracy:", position.coords.accuracy);
           },
         );
 
-        await validatePincode(pincode);
+        setMessage(
+  `We detected ${pincode}. Please confirm or edit it, then click Check Availability.`,
+  "info",
+);
+
+elements.input.focus();
+elements.input.select();
       } catch (error) {
         console.error(
           "[Pincode Validator] Reverse geocoding failed:",

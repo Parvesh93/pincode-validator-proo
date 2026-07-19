@@ -29,7 +29,6 @@ import { MessageSettings } from "../components/settings/MessageSettings";
 import { PopupSettings } from "../components/settings/PopupSettings";
 import { PopupBehaviourSettings } from "../components/settings/PopupBehaviourSettings";
 import { PopupTargetingSettings } from "../components/settings/PopupTargetingSettings";
-import { LocationSettings } from "../components/settings/LocationSettings";
 import { DefaultsSettings } from "../components/settings/DefaultsSettings";
 import { SettingsSaveBar } from "../components/settings/SettingsSaveBar";
 import { SettingsStyles } from "../components/settings/SettingsStyles";
@@ -71,9 +70,6 @@ const DEFAULT_POPUP_DESCRIPTION =
 
 const DEFAULT_POPUP_BUTTON_TEXT =
   "Check Availability";
-
-const DEFAULT_POPUP_LOCATION_TEXT =
-  "Use my current location";
 
 function toBool(
   value: FormDataEntryValue | null,
@@ -219,10 +215,6 @@ export async function loader({
         settings?.popupButtonText ??
         DEFAULT_POPUP_BUTTON_TEXT,
 
-      popupLocationText:
-        settings?.popupLocationText ??
-        DEFAULT_POPUP_LOCATION_TEXT,
-
       popupTrigger:
         isPopupTrigger(
           popupTriggerValue,
@@ -289,9 +281,6 @@ export async function loader({
         settings?.popupAutoCloseDelay ??
         1500,
 
-      locationDetectionEnabled:
-        settings?.locationDetectionEnabled ??
-        false,
     },
   });
 }
@@ -360,12 +349,6 @@ export async function action({
       getString(
         formData,
         "popupButtonText",
-      );
-
-    const popupLocationText =
-      getString(
-        formData,
-        "popupLocationText",
       );
 
     const popupTriggerRaw =
@@ -538,21 +521,6 @@ export async function action({
         {
           error:
             "Popup button text cannot be longer than 50 characters.",
-        },
-        {
-          status: 400,
-        },
-      );
-    }
-
-    if (
-      popupLocationText.length >
-      50
-    ) {
-      return data<ActionData>(
-        {
-          error:
-            "Location button text cannot be longer than 50 characters.",
         },
         {
           status: 400,
@@ -770,8 +738,6 @@ export async function action({
       popupTitle,
       popupDescription,
       popupButtonText,
-      popupLocationText,
-
       popupTrigger:
         popupTriggerRaw,
 
@@ -820,12 +786,6 @@ export async function action({
 
       popupAutoCloseDelay,
 
-      locationDetectionEnabled:
-        toBool(
-          formData.get(
-            "locationDetectionEnabled",
-          ),
-        ),
     });
 
     console.log(
@@ -967,13 +927,6 @@ export default function SettingsPage() {
   );
 
   const [
-    popupLocationText,
-    setPopupLocationText,
-  ] = useState(
-    settings.popupLocationText,
-  );
-
-  const [
     popupTrigger,
     setPopupTrigger,
   ] =
@@ -1088,13 +1041,6 @@ export default function SettingsPage() {
     ),
   );
 
-  const [
-    locationDetectionEnabled,
-    setLocationDetectionEnabled,
-  ] = useState(
-    settings.locationDetectionEnabled,
-  );
-
 
   useEffect(() => {
     setRequireValidation(settings.requireValidation);
@@ -1110,7 +1056,6 @@ export default function SettingsPage() {
     setPopupTitle(settings.popupTitle);
     setPopupDescription(settings.popupDescription);
     setPopupButtonText(settings.popupButtonText);
-    setPopupLocationText(settings.popupLocationText);
     setPopupTrigger(settings.popupTrigger);
     setPopupDelaySeconds(String(settings.popupDelaySeconds));
     setPopupRemember(settings.popupRemember);
@@ -1126,7 +1071,6 @@ export default function SettingsPage() {
     setPopupShowPages(settings.popupShowPages);
     setPopupAutoClose(settings.popupAutoClose);
     setPopupAutoCloseDelay(String(settings.popupAutoCloseDelay));
-    setLocationDetectionEnabled(settings.locationDetectionEnabled);
   }, [settings]);
 
   const values: SettingsFormValues = {
@@ -1145,8 +1089,6 @@ export default function SettingsPage() {
     popupTitle,
     popupDescription,
     popupButtonText,
-    popupLocationText,
-
     popupTrigger,
     popupDelaySeconds,
 
@@ -1168,7 +1110,6 @@ export default function SettingsPage() {
     popupAutoClose,
     popupAutoCloseDelay,
 
-    locationDetectionEnabled,
   };
 
   const setters: SettingsFormSetters = {
@@ -1187,8 +1128,6 @@ export default function SettingsPage() {
     setPopupTitle,
     setPopupDescription,
     setPopupButtonText,
-    setPopupLocationText,
-
     setPopupTrigger,
     setPopupDelaySeconds,
 
@@ -1210,7 +1149,6 @@ export default function SettingsPage() {
     setPopupAutoClose,
     setPopupAutoCloseDelay,
 
-    setLocationDetectionEnabled,
   };
 
   return (
@@ -1414,16 +1352,6 @@ export default function SettingsPage() {
               }
             />
 
-            <input
-              type="hidden"
-              name="locationDetectionEnabled"
-              value={
-                locationDetectionEnabled
-                  ? "true"
-                  : "false"
-              }
-            />
-
             <Layout>
               <Layout.Section>
                 <ValidationSettings
@@ -1445,9 +1373,6 @@ export default function SettingsPage() {
                   }
                   popupEnabled={
                     popupEnabled
-                  }
-                  locationDetectionEnabled={
-                    locationDetectionEnabled
                   }
                   rememberPincodeDays={
                     rememberPincodeDays
@@ -1485,13 +1410,6 @@ export default function SettingsPage() {
 
               <Layout.Section>
                 <PopupTargetingSettings
-                  values={values}
-                  setters={setters}
-                />
-              </Layout.Section>
-
-              <Layout.Section>
-                <LocationSettings
                   values={values}
                   setters={setters}
                 />

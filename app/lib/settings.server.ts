@@ -29,7 +29,6 @@ export type AppSettingsInput = {
   popupTitle: string;
   popupDescription: string;
   popupButtonText: string;
-  popupLocationText: string;
 
   popupTrigger: PopupTrigger;
   popupDelaySeconds: number;
@@ -51,8 +50,6 @@ export type AppSettingsInput = {
 
   popupAutoClose: boolean;
   popupAutoCloseDelay: number;
-
-  locationDetectionEnabled: boolean;
 };
 
 function getSettingsData(
@@ -98,9 +95,6 @@ function getSettingsData(
     popupButtonText:
       input.popupButtonText,
 
-    popupLocationText:
-      input.popupLocationText,
-
     popupTrigger:
       input.popupTrigger,
 
@@ -145,9 +139,6 @@ function getSettingsData(
 
     popupAutoCloseDelay:
       input.popupAutoCloseDelay,
-
-    locationDetectionEnabled:
-      input.locationDetectionEnabled,
   };
 }
 

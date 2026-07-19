@@ -22,8 +22,8 @@ const DEFAULT_POPUP_DESCRIPTION =
 const DEFAULT_POPUP_BUTTON_TEXT =
   "Check Availability";
 
-const DEFAULT_LOCATION_BUTTON_TEXT =
-  "Use my current location";
+// const DEFAULT_LOCATION_BUTTON_TEXT =
+//   "Use my current location";
 
 export function PopupSettings({
   values,
@@ -34,11 +34,11 @@ export function PopupSettings({
     popupTitle,
     popupDescription,
     popupButtonText,
-    popupLocationText,
+    // popupLocationText,
     popupTheme,
     popupWidth,
     popupShowClose,
-    locationDetectionEnabled,
+    // locationDetectionEnabled,
   } = values;
 
   const {
@@ -46,7 +46,7 @@ export function PopupSettings({
     setPopupTitle,
     setPopupDescription,
     setPopupButtonText,
-    setPopupLocationText,
+    // setPopupLocationText,
   } = setters;
 
   const parsedPopupWidth =
@@ -170,7 +170,7 @@ export function PopupSettings({
               showCharacterCount
             />
 
-            <TextField
+            {/* <TextField
               label="Location button text"
               name="popupLocationText"
               value={
@@ -186,7 +186,7 @@ export function PopupSettings({
                 !locationDetectionEnabled
               }
               helpText="Shown only when automatic location detection is enabled."
-            />
+            /> */}
           </BlockStack>
 
           <div className="popup-preview-shell">
@@ -231,7 +231,7 @@ export function PopupSettings({
                 Enter pincode
               </div>
 
-              {locationDetectionEnabled ? (
+              {/* {locationDetectionEnabled ? (
                 <button
                   type="button"
                   className="popup-preview-location"
@@ -240,7 +240,7 @@ export function PopupSettings({
                   {popupLocationText ||
                     DEFAULT_LOCATION_BUTTON_TEXT}
                 </button>
-              ) : null}
+              ) : null} */}
 
               <button
                 type="button"

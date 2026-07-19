@@ -19,8 +19,8 @@ const popupSettings = {
   popupButtonText:
     "Check Availability",
 
-  popupLocationText:
-    "Use my current location",
+  // popupLocationText:
+  //   "Use my current location",
 
   popupTrigger:
     "delay" as const,
@@ -47,7 +47,7 @@ const popupSettings = {
   popupAutoClose: true,
   popupAutoCloseDelay: 1500,
 
-  locationDetectionEnabled: false,
+  // locationDetectionEnabled: false,
 };
 
 const prismaMock = vi.hoisted(() => ({

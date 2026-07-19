@@ -19,7 +19,6 @@ export type SettingsFormValues = {
   popupTitle: string;
   popupDescription: string;
   popupButtonText: string;
-  popupLocationText: string;
 
   popupTrigger: PopupTrigger;
   popupDelaySeconds: string;
@@ -41,8 +40,6 @@ export type SettingsFormValues = {
 
   popupAutoClose: boolean;
   popupAutoCloseDelay: string;
-
-  locationDetectionEnabled: boolean;
 };
 
 export type SettingsFormSetters = {
@@ -98,9 +95,9 @@ export type SettingsFormSetters = {
     value: string,
   ) => void;
 
-  setPopupLocationText: (
-    value: string,
-  ) => void;
+  // setPopupLocationText: (
+  //   value: string,
+  // ) => void;
 
   setPopupTrigger: (
     value: PopupTrigger,
@@ -162,9 +159,9 @@ export type SettingsFormSetters = {
     value: string,
   ) => void;
 
-  setLocationDetectionEnabled: (
-    value: boolean,
-  ) => void;
+  // setLocationDetectionEnabled: (
+  //   value: boolean,
+  // ) => void;
 };
 
 export type SettingsSectionProps = {
@@ -182,7 +179,6 @@ export type SettingsSummaryProps = {
   restrictAddToCart: boolean;
   restrictBuyNow: boolean;
   popupEnabled: boolean;
-  locationDetectionEnabled: boolean;
   rememberPincodeDays: string;
 };
 
