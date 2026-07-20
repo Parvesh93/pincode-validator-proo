@@ -81,6 +81,7 @@
   var globalEventsAttached = false;
   var restoreStarted = false;
   var lastAnnouncement = "";
+  var cartRequestGuardAttached = false;
 
   var sharedState = {
     pincode: "",
@@ -351,68 +352,51 @@
     return section || document;
   }
 
-  function getRelevantProductContexts() {
-    var contexts = [];
+  // function getRelevantProductContexts() {
+  //   var contexts = [];
 
-    getActiveInstances().forEach(function (instance) {
-      var context = findClosestProductContext(
-        instance.widget,
-      );
+  //   getActiveInstances().forEach(function (instance) {
+  //     var context = findClosestProductContext(
+  //       instance.widget,
+  //     );
 
-      if (contexts.indexOf(context) === -1) {
-        contexts.push(context);
-      }
-    });
+  //     if (contexts.indexOf(context) === -1) {
+  //       contexts.push(context);
+  //     }
+  //   });
 
-    if (!contexts.length) {
-      contexts.push(document);
-    }
+  //   if (!contexts.length) {
+  //     contexts.push(document);
+  //   }
 
-    return contexts;
-  }
+  //   return contexts;
+  // }
 
   function findPurchaseControls() {
-    var contexts = getRelevantProductContexts();
+  /*
+   * Search the complete document instead of only the area
+   * surrounding the validator widget.
+   *
+   * Impulse may render the product form, sticky ATC, quick view,
+   * and app block in different containers.
+   */
+  return {
+    addToCartButtons: queryAll(
+      ADD_TO_CART_SELECTORS,
+      document,
+    ),
 
-    var addToCartButtons = [];
-    var buyNowButtons = [];
-    var buyNowContainers = [];
+    buyNowButtons: queryAll(
+      BUY_NOW_BUTTON_SELECTORS,
+      document,
+    ),
 
-    contexts.forEach(function (context) {
-      queryAll(
-        ADD_TO_CART_SELECTORS,
-        context,
-      ).forEach(function (node) {
-        if (addToCartButtons.indexOf(node) === -1) {
-          addToCartButtons.push(node);
-        }
-      });
-
-      queryAll(
-        BUY_NOW_BUTTON_SELECTORS,
-        context,
-      ).forEach(function (node) {
-        if (buyNowButtons.indexOf(node) === -1) {
-          buyNowButtons.push(node);
-        }
-      });
-
-      queryAll(
-        BUY_NOW_CONTAINER_SELECTORS,
-        context,
-      ).forEach(function (node) {
-        if (buyNowContainers.indexOf(node) === -1) {
-          buyNowContainers.push(node);
-        }
-      });
-    });
-
-    return {
-      addToCartButtons: addToCartButtons,
-      buyNowButtons: buyNowButtons,
-      buyNowContainers: buyNowContainers,
-    };
-  }
+    buyNowContainers: queryAll(
+      BUY_NOW_CONTAINER_SELECTORS,
+      document,
+    ),
+  };
+}
 
   function rememberOriginalButtonState(button) {
     if (
@@ -1758,121 +1742,462 @@ var validationSource =
     );
   }
 
-  function attachGlobalEvents() {
-    if (globalEventsAttached) {
-      return;
-    }
+  function shouldRestrictAddToCart() {
+  return Boolean(
+    sharedState.settings.requireValidation &&
+      sharedState.settings.restrictAddToCart &&
+      !sharedState.valid,
+  );
+}
 
-    globalEventsAttached = true;
+function shouldRestrictBuyNow() {
+  return Boolean(
+    sharedState.settings.requireValidation &&
+      sharedState.settings.restrictBuyNow &&
+      !sharedState.valid,
+  );
+}
 
-    document.addEventListener(
-      "shopify:section:load",
-      function (event) {
-        initializeWidgets(event.target);
-        scheduleRefresh(50);
-      },
-    );
+function showPurchaseRestrictionMessage() {
+  var message =
+    "Please validate your delivery pincode before adding this product to the cart.";
 
-    document.addEventListener(
-      "shopify:section:unload",
-      function () {
-        scheduleRefresh(50);
-      },
-    );
+  updateRestrictionNotes(true);
+  announceOnce(message);
 
-    document.addEventListener(
-      "shopify:section:reorder",
-      function () {
-        scheduleRefresh(50);
-      },
-    );
+  var primaryInstance =
+    getPrimaryInstance();
 
-    document.addEventListener(
-      "shopify:block:select",
-      function (event) {
-        initializeWidgets(event.target);
-        scheduleRefresh(50);
-      },
-    );
+  if (!primaryInstance) {
+    return;
+  }
 
-    document.addEventListener(
-      "shopify:block:deselect",
-      function () {
-        scheduleRefresh(50);
-      },
-    );
-
-    [
-      "variant:change",
-      "variant:changed",
-      "product:variant-change",
-      "product:variant:change",
-    ].forEach(function (eventName) {
-      document.addEventListener(
-        eventName,
-        function () {
-          scheduleRefresh(50);
-        },
-      );
+  try {
+    primaryInstance.widget.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
     });
+  } catch (error) {
+    primaryInstance.widget.scrollIntoView();
+  }
 
-    [
-      "quickview:open",
-      "quick-view:open",
-      "quick-add:open",
-    ].forEach(function (eventName) {
-      document.addEventListener(
-        eventName,
-        function () {
-          scheduleRefresh(100);
-        },
-      );
-    });
+  window.setTimeout(function () {
+    focusPrimaryInput();
+  }, 300);
+}
 
-    window.addEventListener(
-      "pageshow",
-      function () {
-        scheduleRefresh(50);
-      },
+function isCartAddUrl(input) {
+  var url = "";
+
+  if (typeof input === "string") {
+    url = input;
+  } else if (
+    typeof URL !== "undefined" &&
+    input instanceof URL
+  ) {
+    url = input.href;
+  } else if (
+    typeof Request !== "undefined" &&
+    input instanceof Request
+  ) {
+    url = input.url;
+  } else if (
+    input &&
+    typeof input.url === "string"
+  ) {
+    url = input.url;
+  }
+
+  if (!url) {
+    return false;
+  }
+
+  try {
+    var parsedUrl = new URL(
+      url,
+      window.location.origin,
     );
 
-    window.addEventListener(
-      "popstate",
-      function () {
-        scheduleRefresh(50);
-      },
+    return (
+      parsedUrl.pathname === "/cart/add" ||
+      parsedUrl.pathname === "/cart/add.js" ||
+      parsedUrl.pathname.endsWith("/cart/add") ||
+      parsedUrl.pathname.endsWith("/cart/add.js")
     );
-
-    window.addEventListener(
-      "storage",
-      function (event) {
-        if (event.key !== STORAGE_KEY) {
-          return;
-        }
-
-        var savedRecord =
-          getSavedPincodeRecord();
-
-        if (
-          savedRecord &&
-          savedRecord.pincode
-        ) {
-          validateSharedPincode(
-            savedRecord.pincode,
-            {
-              silent: true,
-            },
-          );
-        } else {
-          resetSharedValidation({
-            clearSavedPincode: false,
-            clearInputs: true,
-            clearResults: true,
-          });
-        }
-      },
+  } catch (error) {
+    return (
+      url.indexOf("/cart/add") !== -1 ||
+      url.indexOf("/cart/add.js") !== -1
     );
   }
+}
+
+function isAddToCartButton(element) {
+  if (!(element instanceof Element)) {
+    return false;
+  }
+
+  var button = element.closest(
+    ADD_TO_CART_SELECTORS.join(","),
+  );
+
+  if (!button) {
+    return false;
+  }
+
+  /*
+   * Avoid treating the pincode validator submit button
+   * as a product Add to Cart button.
+   */
+  if (
+    button.matches("[data-pincode-submit]") ||
+    button.closest(WIDGET_SELECTOR)
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function isBuyNowButton(element) {
+  if (!(element instanceof Element)) {
+    return false;
+  }
+
+  return Boolean(
+    element.closest(
+      BUY_NOW_BUTTON_SELECTORS.join(","),
+    ),
+  );
+}
+
+function isProductAddForm(form) {
+  if (!(form instanceof HTMLFormElement)) {
+    return false;
+  }
+
+  var action =
+    form.getAttribute("action") || "";
+
+  if (
+    action.indexOf("/cart/add") !== -1
+  ) {
+    return true;
+  }
+
+  /*
+   * Some themes omit or modify the action attribute
+   * but still include a variant ID field.
+   */
+  return Boolean(
+    form.querySelector(
+      '[name="id"], input[name="id"], select[name="id"]',
+    ),
+  );
+}
+
+function attachGlobalEvents() {
+  if (globalEventsAttached) {
+    return;
+  }
+
+  globalEventsAttached = true;
+
+  /*
+   * Hard Add to Cart click guard.
+   *
+   * Capture phase is important because Impulse attaches its own
+   * JavaScript handlers to product buttons.
+   */
+  document.addEventListener(
+    "click",
+    function (event) {
+      var target = event.target;
+
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      if (
+        isAddToCartButton(target) &&
+        shouldRestrictAddToCart()
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+        showPurchaseRestrictionMessage();
+        applySharedPurchaseState();
+
+        return;
+      }
+
+      if (
+        isBuyNowButton(target) &&
+        shouldRestrictBuyNow()
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+        showPurchaseRestrictionMessage();
+        applySharedPurchaseState();
+      }
+    },
+    true,
+  );
+
+  /*
+   * Hard product form submission guard.
+   *
+   * This catches themes that submit the form through JavaScript,
+   * even when the visible button state has been changed.
+   */
+  document.addEventListener(
+    "submit",
+    function (event) {
+      var form = event.target;
+
+      if (
+        !isProductAddForm(form) ||
+        !shouldRestrictAddToCart()
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      showPurchaseRestrictionMessage();
+      applySharedPurchaseState();
+    },
+    true,
+  );
+
+  document.addEventListener(
+    "shopify:section:load",
+    function (event) {
+      initializeWidgets(event.target);
+      scheduleRefresh(50);
+    },
+  );
+
+  document.addEventListener(
+    "shopify:section:unload",
+    function () {
+      scheduleRefresh(50);
+    },
+  );
+
+  document.addEventListener(
+    "shopify:section:reorder",
+    function () {
+      scheduleRefresh(50);
+    },
+  );
+
+  document.addEventListener(
+    "shopify:block:select",
+    function (event) {
+      initializeWidgets(event.target);
+      scheduleRefresh(50);
+    },
+  );
+
+  document.addEventListener(
+    "shopify:block:deselect",
+    function () {
+      scheduleRefresh(50);
+    },
+  );
+
+  [
+    "variant:change",
+    "variant:changed",
+    "product:variant-change",
+    "product:variant:change",
+
+    /*
+     * Impulse / Archetype theme events.
+     */
+    "product:updated",
+    "product:loaded",
+    "cart:build",
+    "cart:updated",
+  ].forEach(function (eventName) {
+    document.addEventListener(
+      eventName,
+      function () {
+        scheduleRefresh(50);
+      },
+    );
+  });
+
+  [
+    "quickview:open",
+    "quick-view:open",
+    "quick-add:open",
+    "quickview:loaded",
+    "quick-view:loaded",
+  ].forEach(function (eventName) {
+    document.addEventListener(
+      eventName,
+      function () {
+        scheduleRefresh(100);
+      },
+    );
+  });
+
+  window.addEventListener(
+    "pageshow",
+    function () {
+      scheduleRefresh(50);
+    },
+  );
+
+  window.addEventListener(
+    "popstate",
+    function () {
+      scheduleRefresh(50);
+    },
+  );
+
+  window.addEventListener(
+    "storage",
+    function (event) {
+      if (event.key !== STORAGE_KEY) {
+        return;
+      }
+
+      var savedRecord =
+        getSavedPincodeRecord();
+
+      if (
+        savedRecord &&
+        savedRecord.pincode
+      ) {
+        validateSharedPincode(
+          savedRecord.pincode,
+          {
+            silent: true,
+          },
+        );
+      } else {
+        resetSharedValidation({
+          clearSavedPincode: false,
+          clearInputs: true,
+          clearResults: true,
+        });
+      }
+    },
+  );
+}
+
+function attachCartRequestGuard() {
+  if (cartRequestGuardAttached) {
+    return;
+  }
+
+  cartRequestGuardAttached = true;
+
+  /*
+   * Save Shopify/theme's current fetch implementation.
+   */
+  var originalFetch =
+    window.fetch.bind(window);
+
+  window.fetch = function (
+    input,
+    options,
+  ) {
+    if (
+      isCartAddUrl(input) &&
+      shouldRestrictAddToCart()
+    ) {
+      showPurchaseRestrictionMessage();
+      applySharedPurchaseState();
+
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            status: 422,
+            message:
+              "Pincode validation is required.",
+            description:
+              "Please validate your delivery pincode before adding this product to the cart.",
+          }),
+          {
+            status: 422,
+            statusText:
+              "Unprocessable Entity",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+          },
+        ),
+      );
+    }
+
+    return originalFetch(
+      input,
+      options,
+    );
+  };
+
+  /*
+   * Impulse or another app may use XMLHttpRequest rather than fetch.
+   */
+  var originalOpen =
+    XMLHttpRequest.prototype.open;
+
+  var originalSend =
+    XMLHttpRequest.prototype.send;
+
+  XMLHttpRequest.prototype.open =
+    function (
+      method,
+      url,
+    ) {
+      this.__pvCartAddRequest =
+        isCartAddUrl(
+          String(url || ""),
+        );
+
+      return originalOpen.apply(
+        this,
+        arguments,
+      );
+    };
+
+  XMLHttpRequest.prototype.send =
+    function () {
+      if (
+        this.__pvCartAddRequest &&
+        shouldRestrictAddToCart()
+      ) {
+        showPurchaseRestrictionMessage();
+        applySharedPurchaseState();
+
+        try {
+          this.abort();
+        } catch (error) {
+          console.warn(
+            "Pincode Validator: blocked cart request could not be aborted cleanly.",
+          );
+        }
+
+        return;
+      }
+
+      return originalSend.apply(
+        this,
+        arguments,
+      );
+    };
+}
 
   function startMutationObserver() {
     if (
@@ -2015,12 +2340,13 @@ var validationSource =
     widget.removeAttribute("aria-hidden");
   });
 
-  ensureRestrictionDescription();
-  initializeWidgets(document);
-  attachGlobalEvents();
-  startMutationObserver();
-  restoreRememberedPincode();
-  scheduleRefresh(100);
+ ensureRestrictionDescription();
+initializeWidgets(document);
+attachGlobalEvents();
+attachCartRequestGuard();
+startMutationObserver();
+restoreRememberedPincode();
+scheduleRefresh(100);
 }
 
   if (document.readyState === "loading") {
