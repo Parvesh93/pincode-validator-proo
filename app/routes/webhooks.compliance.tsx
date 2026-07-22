@@ -5,7 +5,8 @@ import db from "../db.server";
 export const loader = async () => {
   return Response.json(
     {
-      message: "Method not allowed. This endpoint accepts Shopify webhook POST requests only.",
+      message:
+        "Method not allowed. This endpoint accepts Shopify webhook POST requests only.",
     },
     {
       status: 405,
@@ -16,39 +17,46 @@ export const loader = async () => {
   );
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = async ({
+  request,
+}: ActionFunctionArgs) => {
   try {
-    const { topic, shop } = await authenticate.webhook(request);
+    /*
+     * authenticate.webhook verifies the Shopify HMAC before
+     * returning the webhook topic and shop.
+     *
+     * Do not read request.json() or request.text() before this.
+     */
+    const { topic, shop } =
+      await authenticate.webhook(request);
 
-    console.log(`Received ${topic} compliance webhook for ${shop}`);
+    console.log(
+      `Received ${topic} compliance webhook for ${shop}`,
+    );
 
     switch (topic) {
       case "CUSTOMERS_DATA_REQUEST": {
         /*
-         * This app currently does not store customer-specific personal data.
-         *
-         * If customer data is stored in the future, retrieve it here and
-         * process the merchant's customer data request.
+         * The app currently does not store customer-specific
+         * personal data, so there is nothing to return.
          */
         break;
       }
 
       case "CUSTOMERS_REDACT": {
         /*
-         * This app currently does not store customer-specific personal data.
-         *
-         * If customer-level records are added later, delete or anonymize them
-         * here.
+         * The app currently does not store customer-specific
+         * personal data, so there is nothing to remove.
          */
         break;
       }
 
       case "SHOP_REDACT": {
         /*
-         * Delete all data belonging to the store.
+         * Delete the sessions and Shop record.
          *
-         * AppSetting, Pincode and ValidationLog records are automatically
-         * deleted because the Prisma relationships use onDelete: Cascade.
+         * Related AppSetting, Pincode and ValidationLog records
+         * should be removed through Prisma cascade relationships.
          */
         await db.$transaction([
           db.session.deleteMany({
@@ -64,12 +72,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           }),
         ]);
 
-        console.log(`Deleted stored data for ${shop}`);
+        console.log(
+          `Deleted stored data for ${shop}`,
+        );
+
         break;
       }
 
       default: {
-        console.warn(`Unhandled compliance webhook topic: ${topic}`);
+        console.warn(
+          `Unhandled compliance webhook topic: ${topic}`,
+        );
       }
     }
 
@@ -77,7 +90,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       status: 200,
     });
   } catch (error) {
-    console.error("Compliance webhook processing failed:", error);
+    /*
+     * Invalid HMAC requests are rejected by
+     * authenticate.webhook() using an HTTP Response, normally 401.
+     *
+     * Return that Response unchanged so Shopify receives the
+     * expected Unauthorized status during its automated check.
+     */
+    if (error instanceof Response) {
+      return error;
+    }
+
+    console.error(
+      "Compliance webhook processing failed:",
+      error,
+    );
 
     return new Response(null, {
       status: 500,
