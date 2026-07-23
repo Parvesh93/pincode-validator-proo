@@ -159,45 +159,80 @@ export default function App() {
       apiKey={apiKey}
     >
       <NavMenu>
-        <Link
-          to="/app"
-          rel="home"
-        >
-          Dashboard
-        </Link>
+  <Link
+    to="/app"
+    rel="home"
+  >
+    Dashboard
+  </Link>
 
-        <Link to="/app/pincodes">
-          Manage Pincodes
-        </Link>
+  <Link to="/app/pincodes">
+    Manage Pincodes
+  </Link>
 
-        {billing.isPro && (
-          <Link to="/app/import">
-            Import CSV
-          </Link>
-        )}
+  {billing.isPro ? (
+    <Link to="/app/import">
+      Import CSV
+    </Link>
+  ) : (
+    <a
+      href={pricingUrl}
+      target="_top"
+    >
+      🔒 Import CSV
+    </a>
+  )}
 
-        {billing.isPro && (
-          <a href="/app/pincodes/export">
-            Export CSV
-          </a>
-        )}
+  {billing.isPro ? (
+    <a href="/app/pincodes/export">
+      Export CSV
+    </a>
+  ) : (
+    <a
+      href={pricingUrl}
+      target="_top"
+    >
+      🔒 Export CSV
+    </a>
+  )}
 
-        {billing.isPro && (
-          <Link to="/app/analytics">
-            Analytics
-          </Link>
-        )}
+  {billing.isPro ? (
+    <Link to="/app/analytics">
+      Analytics
+    </Link>
+  ) : (
+    <a
+      href={pricingUrl}
+      target="_top"
+    >
+      🔒 Analytics
+    </a>
+  )}
 
-        {billing.isPro && (
-          <Link to="/app/logs">
-            Validation Logs
-          </Link>
-        )}
+  {billing.isPro ? (
+    <Link to="/app/logs">
+      Validation Logs
+    </Link>
+  ) : (
+    <a
+      href={pricingUrl}
+      target="_top"
+    >
+      🔒 Validation Logs
+    </a>
+  )}
 
-        <Link to="/app/settings">
-          Settings
-        </Link>
-      </NavMenu>
+  <Link to="/app/settings">
+    Settings
+  </Link>
+
+  <a
+    href={pricingUrl}
+    target="_top"
+  >
+    Plans & Billing
+  </a>
+</NavMenu>
 
       <Outlet
         context={{
