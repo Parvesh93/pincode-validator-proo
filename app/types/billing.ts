@@ -1,9 +1,19 @@
 export type AppBillingContext = {
   billing: {
-    plan: "free" | "pro";
+    plan:
+      | "free"
+      | "pro";
+
     isPro: boolean;
+
+    hasSelectedPlan: boolean;
+
     hasActivePayment: boolean;
-    subscriptionName: string | null;
+
+    subscriptionName:
+      | string
+      | null;
+
     isTest: boolean;
   };
 

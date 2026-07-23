@@ -32,6 +32,7 @@ import {
 
 import {
   getBillingStatus,
+  saveSelectedPlan,
 } from "../lib/billing.server";
 
 export const loader = async ({
@@ -39,17 +40,47 @@ export const loader = async ({
 }: LoaderFunctionArgs) => {
   const {
     billing,
+    redirect,
     session,
-  } = await authenticate.admin(request);
+  } =
+    await authenticate.admin(
+      request,
+    );
 
-  // Ensure shop exists in DB
-  await getOrCreateShopByDomain(session.shop);
+  const shop =
+    await getOrCreateShopByDomain(
+      session.shop,
+    );
+
+  const requestUrl =
+    new URL(request.url);
+
+  const selectedPlanHandle =
+    requestUrl.searchParams.get(
+      "plan_handle",
+    );
+
+  /*
+   * Shopify adds plan_handle after the merchant
+   * chooses a plan and returns through the Welcome link.
+   */
+  if (selectedPlanHandle) {
+    await saveSelectedPlan({
+      shopId: shop.id,
+      planHandle:
+        selectedPlanHandle,
+    });
+  }
 
   const billingStatus =
-    await getBillingStatus(billing);
+    await getBillingStatus(
+      billing,
+      shop.id,
+    );
 
   const appHandle =
-    process.env.SHOPIFY_APP_HANDLE ||
+    process.env
+      .SHOPIFY_APP_HANDLE ||
     "pincode-validator-proo";
 
   const storeHandle =
@@ -59,25 +90,53 @@ export const loader = async ({
     );
 
   const pricingUrl =
-    `https://admin.shopify.com/store/${encodeURIComponent(
+    `https://admin.shopify.com/store/` +
+    `${encodeURIComponent(
       storeHandle,
-    )}/charges/${encodeURIComponent(
+    )}/charges/` +
+    `${encodeURIComponent(
       appHandle,
     )}/pricing_plans`;
 
+  /*
+   * First installation:
+   * no plan has been selected yet, so send the
+   * merchant to Shopify's hosted pricing page.
+   */
+  if (
+    !billingStatus.hasSelectedPlan
+  ) {
+    return redirect(
+      pricingUrl,
+      {
+        target: "_top",
+      },
+    );
+  }
+
   return {
     apiKey:
-      process.env.SHOPIFY_API_KEY || "",
+      process.env
+        .SHOPIFY_API_KEY || "",
 
     pricingUrl,
 
     billing: {
-      plan: billingStatus.plan,
-      isPro: billingStatus.isPro,
+      plan:
+        billingStatus.plan,
+
+      isPro:
+        billingStatus.isPro,
+
+      hasSelectedPlan:
+        billingStatus.hasSelectedPlan,
+
       hasActivePayment:
         billingStatus.hasActivePayment,
+
       subscriptionName:
         billingStatus.subscriptionName,
+
       isTest:
         billingStatus.isTest,
     },
@@ -89,7 +148,10 @@ export default function App() {
     apiKey,
     billing,
     pricingUrl,
-  } = useLoaderData<typeof loader>();
+  } =
+    useLoaderData<
+      typeof loader
+    >();
 
   return (
     <AppProvider
@@ -108,21 +170,29 @@ export default function App() {
           Manage Pincodes
         </Link>
 
-        <Link to="/app/import">
-          Import CSV
-        </Link>
+        {billing.isPro && (
+          <Link to="/app/import">
+            Import CSV
+          </Link>
+        )}
 
-        <a href="/app/pincodes/export">
-          Export CSV
-        </a>
+        {billing.isPro && (
+          <a href="/app/pincodes/export">
+            Export CSV
+          </a>
+        )}
 
-        <Link to="/app/analytics">
-          Analytics
-        </Link>
+        {billing.isPro && (
+          <Link to="/app/analytics">
+            Analytics
+          </Link>
+        )}
 
-        <Link to="/app/logs">
-          Validation Logs
-        </Link>
+        {billing.isPro && (
+          <Link to="/app/logs">
+            Validation Logs
+          </Link>
+        )}
 
         <Link to="/app/settings">
           Settings
