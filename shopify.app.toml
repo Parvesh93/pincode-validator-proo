@@ -5,7 +5,7 @@ name = "pincode-validator-proo"
 application_url = "https://apps.ppdesigntech.com"
 embedded = true
 
-handle = "pinsure-pincode-validator"
+handle = "pincode-validator-proo"
 
 [build]
 automatically_update_urls_on_dev = true
