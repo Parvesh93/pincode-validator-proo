@@ -1143,16 +1143,16 @@ export default function Index() {
   const isPro = billing.isPro;
 
   const openPricingPage = () => {
-    if (window.top) {
-      window.top.location.href =
-        pricingUrl;
-
-      return;
-    }
-
-    window.location.href =
+  if (window.top) {
+    window.top.location.href =
       pricingUrl;
-  };
+
+    return;
+  }
+
+  window.location.href =
+    pricingUrl;
+};
 
   const freeRemaining =
     Math.max(
@@ -1356,13 +1356,9 @@ export default function Index() {
                   Import CSV
                 </s-button>
               ) : (
-                <s-button
-                  onClick={
-                    openPricingPage
-                  }
-                >
-                  Upgrade to Pro
-                </s-button>
+                <s-button href="/app/upgrade">
+  Upgrade to Pro
+</s-button>
               )}
             </div>
           </div>
@@ -1495,11 +1491,11 @@ export default function Index() {
             </div>
 
             <s-button
-              onClick={openPricingPage}
-              variant="primary"
-            >
-              View Pro plan
-            </s-button>
+  href="/app/upgrade"
+  variant="primary"
+>
+  View Pro plan
+</s-button>
           </section>
         )}
 

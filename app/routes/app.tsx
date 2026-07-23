@@ -199,7 +199,7 @@ export default function App() {
       embedded
       apiKey={apiKey}
     >
-     <NavMenu>
+  <NavMenu>
   <Link
     to="/app"
     rel="home"
@@ -215,7 +215,7 @@ export default function App() {
     to={
       billing.isPro
         ? "/app/import"
-        : "/app/plans"
+        : "/app/upgrade"
     }
   >
     {billing.isPro
@@ -227,7 +227,7 @@ export default function App() {
     to={
       billing.isPro
         ? "/app/pincodes/export"
-        : "/app/plans"
+        : "/app/upgrade"
     }
   >
     {billing.isPro
@@ -239,7 +239,7 @@ export default function App() {
     to={
       billing.isPro
         ? "/app/analytics"
-        : "/app/plans"
+        : "/app/upgrade"
     }
   >
     {billing.isPro
@@ -251,7 +251,7 @@ export default function App() {
     to={
       billing.isPro
         ? "/app/logs"
-        : "/app/plans"
+        : "/app/upgrade"
     }
   >
     {billing.isPro
@@ -263,7 +263,7 @@ export default function App() {
     Settings
   </Link>
 
-  <Link to="/app/plans">
+  <Link to="/app/upgrade">
     Plans & Billing
   </Link>
 </NavMenu>
