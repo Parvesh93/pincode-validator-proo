@@ -42,19 +42,34 @@ export const loader = async ({
     session,
   } = await authenticate.admin(request);
 
-  /*
-   * Keep creating/fetching the local Shop record.
-   */
-  await getOrCreateShopByDomain(
-    session.shop,
-  );
+  // Ensure shop exists in DB
+  await getOrCreateShopByDomain(session.shop);
 
   const billingStatus =
     await getBillingStatus(billing);
 
+  const appHandle =
+    process.env.SHOPIFY_APP_HANDLE ||
+    "pincode-validator-proo";
+
+  const storeHandle =
+    session.shop.replace(
+      /\.myshopify\.com$/i,
+      "",
+    );
+
+  const pricingUrl =
+    `https://admin.shopify.com/store/${encodeURIComponent(
+      storeHandle,
+    )}/charges/${encodeURIComponent(
+      appHandle,
+    )}/pricing_plans`;
+
   return {
     apiKey:
       process.env.SHOPIFY_API_KEY || "",
+
+    pricingUrl,
 
     billing: {
       plan: billingStatus.plan,
@@ -73,6 +88,7 @@ export default function App() {
   const {
     apiKey,
     billing,
+    pricingUrl,
   } = useLoaderData<typeof loader>();
 
   return (
@@ -116,6 +132,7 @@ export default function App() {
       <Outlet
         context={{
           billing,
+          pricingUrl,
         }}
       />
     </AppProvider>

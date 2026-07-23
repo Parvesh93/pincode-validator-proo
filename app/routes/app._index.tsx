@@ -767,8 +767,7 @@ export const loader = async ({
     ).length;
 
   const inactivePincodes =
-    totalPincodes -
-    activePincodes;
+    totalPincodes - activePincodes;
 
   const activePercentage =
     totalPincodes > 0
@@ -851,8 +850,7 @@ function StatCard({
           fontSize: "13px",
           fontWeight: 600,
           letterSpacing: "0.02em",
-          textTransform:
-            "uppercase",
+          textTransform: "uppercase",
         }}
       >
         {label}
@@ -909,8 +907,7 @@ function StatusRow({
     <div
       style={{
         display: "flex",
-        alignItems:
-          "flex-start",
+        alignItems: "flex-start",
         justifyContent:
           "space-between",
         gap: "20px",
@@ -946,18 +943,14 @@ function StatusRow({
                   "inline-flex",
                 alignItems:
                   "center",
-                padding:
-                  "3px 8px",
+                padding: "3px 8px",
                 borderRadius:
                   "999px",
                 background:
                   "#fff3cd",
-                color:
-                  "#7a4f01",
-                fontSize:
-                  "11px",
-                fontWeight:
-                  700,
+                color: "#7a4f01",
+                fontSize: "11px",
+                fontWeight: 700,
               }}
             >
               Pro
@@ -967,8 +960,7 @@ function StatusRow({
 
         <p
           style={{
-            margin:
-              "5px 0 0",
+            margin: "5px 0 0",
             color: "#6d7175",
             fontSize: "13px",
             lineHeight: 1.5,
@@ -983,15 +975,11 @@ function StatusRow({
       <span
         style={{
           flexShrink: 0,
-          display:
-            "inline-flex",
-          alignItems:
-            "center",
+          display: "inline-flex",
+          alignItems: "center",
           gap: "7px",
-          padding:
-            "6px 10px",
-          borderRadius:
-            "999px",
+          padding: "6px 10px",
+          borderRadius: "999px",
 
           background: locked
             ? "#fff3cd"
@@ -1013,8 +1001,7 @@ function StatusRow({
           style={{
             width: "7px",
             height: "7px",
-            borderRadius:
-              "50%",
+            borderRadius: "50%",
 
             background: locked
               ? "#b98900"
@@ -1041,6 +1028,7 @@ type ActionCardProps = {
   buttonText: string;
   proRequired?: boolean;
   isPro?: boolean;
+  onUpgrade?: () => void;
 };
 
 function ActionCard({
@@ -1050,26 +1038,16 @@ function ActionCard({
   buttonText,
   proRequired = false,
   isPro = false,
+  onUpgrade,
 }: ActionCardProps) {
   const locked =
     proRequired && !isPro;
-
-  const actionHref =
-    locked
-      ? "/app/pricing"
-      : href;
-
-  const actionText =
-    locked
-      ? "Upgrade to Pro"
-      : buttonText;
 
   return (
     <div
       style={{
         display: "flex",
-        flexDirection:
-          "column",
+        flexDirection: "column",
         justifyContent:
           "space-between",
         minHeight: "190px",
@@ -1086,8 +1064,7 @@ function ActionCard({
         <div
           style={{
             display: "flex",
-            alignItems:
-              "center",
+            alignItems: "center",
             justifyContent:
               "space-between",
             gap: "10px",
@@ -1110,18 +1087,14 @@ function ActionCard({
                 flexShrink: 0,
                 display:
                   "inline-flex",
-                padding:
-                  "4px 9px",
+                padding: "4px 9px",
                 borderRadius:
                   "999px",
                 background:
                   "#fff3cd",
-                color:
-                  "#7a4f01",
-                fontSize:
-                  "11px",
-                fontWeight:
-                  700,
+                color: "#7a4f01",
+                fontSize: "11px",
+                fontWeight: 700,
               }}
             >
               Pro
@@ -1131,8 +1104,7 @@ function ActionCard({
 
         <p
           style={{
-            margin:
-              "9px 0 20px",
+            margin: "9px 0 20px",
             color: "#6d7175",
             fontSize: "14px",
             lineHeight: 1.6,
@@ -1142,26 +1114,45 @@ function ActionCard({
         </p>
       </div>
 
-      <s-link href={actionHref}>
-        {actionText}
-      </s-link>
+      {locked ? (
+        <s-button
+          onClick={onUpgrade}
+          variant="primary"
+        >
+          Upgrade to Pro
+        </s-button>
+      ) : (
+        <s-link href={href}>
+          {buttonText}
+        </s-link>
+      )}
     </div>
   );
 }
 
 export default function Index() {
   const data =
-    useLoaderData<
-      typeof loader
-    >();
+    useLoaderData<typeof loader>();
 
   const {
     billing,
+    pricingUrl,
   } =
     useOutletContext<AppBillingContext>();
 
-  const isPro =
-    billing.isPro;
+  const isPro = billing.isPro;
+
+  const openPricingPage = () => {
+    if (window.top) {
+      window.top.location.href =
+        pricingUrl;
+
+      return;
+    }
+
+    window.location.href =
+      pricingUrl;
+  };
 
   const freeRemaining =
     Math.max(
@@ -1215,8 +1206,7 @@ export default function Index() {
             <div
               style={{
                 display: "flex",
-                alignItems:
-                  "center",
+                alignItems: "center",
                 flexWrap: "wrap",
                 gap: "8px",
               }}
@@ -1227,18 +1217,15 @@ export default function Index() {
                     "inline-flex",
                   alignItems:
                     "center",
-                  padding:
-                    "6px 10px",
+                  padding: "6px 10px",
                   border:
                     "1px solid rgba(255,255,255,0.18)",
                   borderRadius:
                     "999px",
                   background:
                     "rgba(255,255,255,0.08)",
-                  fontSize:
-                    "12px",
-                  fontWeight:
-                    700,
+                  fontSize: "12px",
+                  fontWeight: 700,
                   letterSpacing:
                     "0.03em",
                 }}
@@ -1253,25 +1240,20 @@ export default function Index() {
                   alignItems:
                     "center",
                   gap: "6px",
-                  padding:
-                    "6px 10px",
+                  padding: "6px 10px",
                   borderRadius:
                     "999px",
 
-                  background:
-                    isPro
-                      ? "rgba(34, 197, 94, 0.18)"
-                      : "rgba(255,255,255,0.10)",
+                  background: isPro
+                    ? "rgba(34, 197, 94, 0.18)"
+                    : "rgba(255,255,255,0.10)",
 
-                  border:
-                    isPro
-                      ? "1px solid rgba(74, 222, 128, 0.30)"
-                      : "1px solid rgba(255,255,255,0.18)",
+                  border: isPro
+                    ? "1px solid rgba(74, 222, 128, 0.30)"
+                    : "1px solid rgba(255,255,255,0.18)",
 
-                  fontSize:
-                    "12px",
-                  fontWeight:
-                    700,
+                  fontSize: "12px",
+                  fontWeight: 700,
                 }}
               >
                 <span
@@ -1280,10 +1262,9 @@ export default function Index() {
                     height: "7px",
                     borderRadius:
                       "50%",
-                    background:
-                      isPro
-                        ? "#4ade80"
-                        : "#d1d5db",
+                    background: isPro
+                      ? "#4ade80"
+                      : "#d1d5db",
                   }}
                 />
 
@@ -1307,12 +1288,9 @@ export default function Index() {
                       "rgba(245, 158, 11, 0.18)",
                     border:
                       "1px solid rgba(251, 191, 36, 0.30)",
-                    color:
-                      "#fde68a",
-                    fontSize:
-                      "12px",
-                    fontWeight:
-                      700,
+                    color: "#fde68a",
+                    fontSize: "12px",
+                    fontWeight: 700,
                   }}
                 >
                   Test subscription
@@ -1342,14 +1320,15 @@ export default function Index() {
                 lineHeight: 1.7,
               }}
             >
-              Control serviceable pincodes,
-              COD availability, prepaid
-              availability and storefront
-              validation for{" "}
+              Control serviceable
+              pincodes, COD
+              availability, prepaid
+              availability and
+              storefront validation
+              for{" "}
               <strong
                 style={{
-                  color:
-                    "#ffffff",
+                  color: "#ffffff",
                 }}
               >
                 {data.shopDomain}
@@ -1372,30 +1351,30 @@ export default function Index() {
                 Manage pincodes
               </s-button>
 
-              <s-button
-                href={
-                  isPro
-                    ? "/app/import"
-                    : "/app/pricing"
-                }
-              >
-                {isPro
-                  ? "Import CSV"
-                  : "Upgrade to Pro"}
-              </s-button>
+              {isPro ? (
+                <s-button href="/app/import">
+                  Import CSV
+                </s-button>
+              ) : (
+                <s-button
+                  onClick={
+                    openPricingPage
+                  }
+                >
+                  Upgrade to Pro
+                </s-button>
+              )}
             </div>
           </div>
 
           <div
             style={{
-              position:
-                "absolute",
+              position: "absolute",
               top: "-80px",
               right: "-60px",
               width: "260px",
               height: "260px",
-              borderRadius:
-                "50%",
+              borderRadius: "50%",
               background:
                 "rgba(255,255,255,0.06)",
             }}
@@ -1403,14 +1382,12 @@ export default function Index() {
 
           <div
             style={{
-              position:
-                "absolute",
+              position: "absolute",
               right: "100px",
               bottom: "-100px",
               width: "220px",
               height: "220px",
-              borderRadius:
-                "50%",
+              borderRadius: "50%",
               background:
                 "rgba(13, 148, 136, 0.18)",
             }}
@@ -1423,40 +1400,32 @@ export default function Index() {
               display: "grid",
               gridTemplateColumns:
                 "minmax(0, 1fr) auto",
-              alignItems:
-                "center",
+              alignItems: "center",
               gap: "20px",
               padding: "20px",
               border:
                 "1px solid #c9d8f3",
-              borderRadius:
-                "16px",
-              background:
-                "#f4f7ff",
+              borderRadius: "16px",
+              background: "#f4f7ff",
             }}
             className="pincode-plan-banner"
           >
             <div>
               <div
                 style={{
-                  display:
-                    "flex",
+                  display: "flex",
                   alignItems:
                     "center",
-                  flexWrap:
-                    "wrap",
+                  flexWrap: "wrap",
                   gap: "9px",
                 }}
               >
                 <h2
                   style={{
                     margin: 0,
-                    color:
-                      "#202223",
-                    fontSize:
-                      "17px",
-                    fontWeight:
-                      700,
+                    color: "#202223",
+                    fontSize: "17px",
+                    fontWeight: 700,
                   }}
                 >
                   Free plan usage
@@ -1466,22 +1435,20 @@ export default function Index() {
                   style={{
                     display:
                       "inline-flex",
-                    padding:
-                      "4px 8px",
+                    padding: "4px 8px",
                     borderRadius:
                       "999px",
                     background:
                       "#e3e8ff",
-                    color:
-                      "#3730a3",
-                    fontSize:
-                      "11px",
-                    fontWeight:
-                      700,
+                    color: "#3730a3",
+                    fontSize: "11px",
+                    fontWeight: 700,
                   }}
                 >
                   {data.totalPincodes}/
-                  {FREE_PINCODE_LIMIT}{" "}
+                  {
+                    FREE_PINCODE_LIMIT
+                  }{" "}
                   pincodes
                 </span>
               </div>
@@ -1490,12 +1457,9 @@ export default function Index() {
                 style={{
                   margin:
                     "7px 0 12px",
-                  color:
-                    "#5c5f62",
-                  fontSize:
-                    "13px",
-                  lineHeight:
-                    1.5,
+                  color: "#5c5f62",
+                  fontSize: "13px",
+                  lineHeight: 1.5,
                 }}
               >
                 {freeRemaining > 0
@@ -1505,22 +1469,18 @@ export default function Index() {
 
               <div
                 style={{
-                  maxWidth:
-                    "560px",
+                  maxWidth: "560px",
                   height: "8px",
-                  overflow:
-                    "hidden",
+                  overflow: "hidden",
                   borderRadius:
                     "999px",
-                  background:
-                    "#dfe3e8",
+                  background: "#dfe3e8",
                 }}
               >
                 <div
                   style={{
                     width: `${freeUsagePercentage}%`,
-                    height:
-                      "100%",
+                    height: "100%",
                     borderRadius:
                       "999px",
 
@@ -1535,7 +1495,7 @@ export default function Index() {
             </div>
 
             <s-button
-              href="/app/pricing"
+              onClick={openPricingPage}
               variant="primary"
             >
               View Pro plan
@@ -1547,25 +1507,20 @@ export default function Index() {
           <div
             style={{
               display: "flex",
-              alignItems:
-                "flex-end",
+              alignItems: "flex-end",
               justifyContent:
                 "space-between",
               gap: "16px",
-              marginBottom:
-                "14px",
+              marginBottom: "14px",
             }}
           >
             <div>
               <h2
                 style={{
                   margin: 0,
-                  color:
-                    "#202223",
-                  fontSize:
-                    "20px",
-                  fontWeight:
-                    700,
+                  color: "#202223",
+                  fontSize: "20px",
+                  fontWeight: 700,
                 }}
               >
                 Store overview
@@ -1573,12 +1528,9 @@ export default function Index() {
 
               <p
                 style={{
-                  margin:
-                    "5px 0 0",
-                  color:
-                    "#6d7175",
-                  fontSize:
-                    "14px",
+                  margin: "5px 0 0",
+                  color: "#6d7175",
+                  fontSize: "14px",
                 }}
               >
                 A quick summary of your current serviceability data.
@@ -1650,10 +1602,8 @@ export default function Index() {
               padding: "24px",
               border:
                 "1px solid #e3e5e7",
-              borderRadius:
-                "16px",
-              background:
-                "#ffffff",
+              borderRadius: "16px",
+              background: "#ffffff",
               boxShadow:
                 "0 4px 18px rgba(20, 25, 30, 0.04)",
             }}
@@ -1661,25 +1611,20 @@ export default function Index() {
             <div
               style={{
                 display: "flex",
-                alignItems:
-                  "center",
+                alignItems: "center",
                 justifyContent:
                   "space-between",
                 gap: "16px",
-                marginBottom:
-                  "4px",
+                marginBottom: "4px",
               }}
             >
               <div>
                 <h2
                   style={{
                     margin: 0,
-                    color:
-                      "#202223",
-                    fontSize:
-                      "19px",
-                    fontWeight:
-                      700,
+                    color: "#202223",
+                    fontSize: "19px",
+                    fontWeight: 700,
                   }}
                 >
                   Validation status
@@ -1687,12 +1632,9 @@ export default function Index() {
 
                 <p
                   style={{
-                    margin:
-                      "5px 0 0",
-                    color:
-                      "#6d7175",
-                    fontSize:
-                      "14px",
+                    margin: "5px 0 0",
+                    color: "#6d7175",
+                    fontSize: "14px",
                   }}
                 >
                   Review the storefront rules currently active.
@@ -1738,10 +1680,8 @@ export default function Index() {
               padding: "24px",
               border:
                 "1px solid #e3e5e7",
-              borderRadius:
-                "16px",
-              background:
-                "#ffffff",
+              borderRadius: "16px",
+              background: "#ffffff",
               boxShadow:
                 "0 4px 18px rgba(20, 25, 30, 0.04)",
             }}
@@ -1771,25 +1711,19 @@ export default function Index() {
 
             <div
               style={{
-                marginBottom:
-                  "12px",
+                marginBottom: "12px",
                 height: "10px",
-                overflow:
-                  "hidden",
-                borderRadius:
-                  "999px",
-                background:
-                  "#e4e5e7",
+                overflow: "hidden",
+                borderRadius: "999px",
+                background: "#e4e5e7",
               }}
             >
               <div
                 style={{
                   width: `${data.activePercentage}%`,
                   height: "100%",
-                  borderRadius:
-                    "999px",
-                  background:
-                    "#008060",
+                  borderRadius: "999px",
+                  background: "#008060",
                   transition:
                     "width 0.3s ease",
                 }}
@@ -1802,12 +1736,9 @@ export default function Index() {
                 justifyContent:
                   "space-between",
                 gap: "16px",
-                marginBottom:
-                  "22px",
-                color:
-                  "#6d7175",
-                fontSize:
-                  "13px",
+                marginBottom: "22px",
+                color: "#6d7175",
+                fontSize: "13px",
               }}
             >
               <span>
@@ -1816,7 +1747,9 @@ export default function Index() {
               </span>
 
               <span>
-                {data.inactivePincodes}{" "}
+                {
+                  data.inactivePincodes
+                }{" "}
                 inactive
               </span>
             </div>
@@ -1830,12 +1763,9 @@ export default function Index() {
                     "12px",
                   background:
                     "#fff8e5",
-                  color:
-                    "#5c3c00",
-                  fontSize:
-                    "13px",
-                  lineHeight:
-                    1.6,
+                  color: "#5c3c00",
+                  fontSize: "13px",
+                  lineHeight: 1.6,
                 }}
               >
                 No pincodes have been added yet. Add one manually or import a CSV file to activate storefront validation.
@@ -1848,12 +1778,9 @@ export default function Index() {
                     "12px",
                   background:
                     "#e8f5ee",
-                  color:
-                    "#075c3c",
-                  fontSize:
-                    "13px",
-                  lineHeight:
-                    1.6,
+                  color: "#075c3c",
+                  fontSize: "13px",
+                  lineHeight: 1.6,
                 }}
               >
                 Your pincode database is active and ready for storefront validation.
@@ -1865,8 +1792,7 @@ export default function Index() {
         <section>
           <div
             style={{
-              marginBottom:
-                "14px",
+              marginBottom: "14px",
             }}
           >
             <h2
@@ -1882,8 +1808,7 @@ export default function Index() {
 
             <p
               style={{
-                margin:
-                  "5px 0 0",
+                margin: "5px 0 0",
                 color: "#6d7175",
                 fontSize: "14px",
               }}
@@ -1919,6 +1844,9 @@ export default function Index() {
               buttonText="Import pincode data"
               proRequired
               isPro={isPro}
+              onUpgrade={
+                openPricingPage
+              }
             />
 
             <ActionCard
