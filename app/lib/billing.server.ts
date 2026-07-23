@@ -31,10 +31,6 @@ function normalizePlanHandle(
       .toLowerCase()
       .replace(/_/g, "-");
 
-  /*
-   * Adjust these values to match the exact plan handles
-   * Shopify sends back to your Welcome link.
-   */
   const proPlanHandles = [
     "pro",
     "pro-plan",
@@ -65,11 +61,6 @@ function normalizePlanHandle(
     return "free";
   }
 
-  /*
-   * Temporary fallback:
-   * any handle containing "pro" is Pro;
-   * any handle containing "free" is Free.
-   */
   if (
     normalized.includes("pro")
   ) {
@@ -105,6 +96,15 @@ export async function saveSelectedPlan({
 
     return null;
   }
+
+  console.log(
+    "[Billing] Saving selected plan:",
+    {
+      shopId,
+      planHandle,
+      normalizedPlan: plan,
+    },
+  );
 
   return prisma.shop.update({
     where: {
@@ -172,13 +172,17 @@ export async function getBillingStatus(
       true;
 
     /*
-     * A verified paid subscription always wins.
-     * Otherwise, use the selected Free plan stored locally.
+     * Shopify App Pricing:
+     *
+     * The selected plan saved from plan_handle is the source
+     * of truth for Free versus Pro.
+     *
+     * Do not use hasActivePayment to decide isPro because a
+     * hosted Free plan can still be returned as an active
+     * billing relationship.
      */
     const plan: AppPlan =
-      hasActivePayment
-        ? "pro"
-        : storedPlan ?? "free";
+      storedPlan ?? "free";
 
     return {
       plan,
@@ -187,8 +191,7 @@ export async function getBillingStatus(
         plan === "pro",
 
       hasSelectedPlan:
-        storedPlan !== null ||
-        hasActivePayment,
+        storedPlan !== null,
 
       hasActivePayment,
 
@@ -206,16 +209,18 @@ export async function getBillingStatus(
     };
   } catch (error) {
     console.error(
-      "Could not check Shopify billing status:",
+      "[Billing] Could not check Shopify billing status:",
       error,
     );
 
+    const plan: AppPlan =
+      storedPlan ?? "free";
+
     return {
-      plan:
-        storedPlan ?? "free",
+      plan,
 
       isPro:
-        storedPlan === "pro",
+        plan === "pro",
 
       hasSelectedPlan:
         storedPlan !== null,
