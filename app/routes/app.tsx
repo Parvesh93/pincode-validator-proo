@@ -199,7 +199,7 @@ export default function App() {
       embedded
       apiKey={apiKey}
     >
-      <NavMenu>
+     <NavMenu>
   <Link
     to="/app"
     rel="home"
@@ -211,49 +211,61 @@ export default function App() {
     Manage Pincodes
   </Link>
 
-  <ProNavItem
-    isPro={billing.isPro}
-    appHref="/app/import"
-    pricingUrl={pricingUrl}
+  <Link
+    to={
+      billing.isPro
+        ? "/app/import"
+        : "/app/plans"
+    }
   >
-    Import CSV
-  </ProNavItem>
+    {billing.isPro
+      ? "Import CSV"
+      : "👑 Import CSV"}
+  </Link>
 
-  <ProNavItem
-    isPro={billing.isPro}
-    appHref="/app/pincodes/export"
-    pricingUrl={pricingUrl}
-    external
+  <Link
+    to={
+      billing.isPro
+        ? "/app/pincodes/export"
+        : "/app/plans"
+    }
   >
-    Export CSV
-  </ProNavItem>
+    {billing.isPro
+      ? "Export CSV"
+      : "👑 Export CSV"}
+  </Link>
 
-  <ProNavItem
-    isPro={billing.isPro}
-    appHref="/app/analytics"
-    pricingUrl={pricingUrl}
+  <Link
+    to={
+      billing.isPro
+        ? "/app/analytics"
+        : "/app/plans"
+    }
   >
-    Analytics
-  </ProNavItem>
+    {billing.isPro
+      ? "Analytics"
+      : "👑 Analytics"}
+  </Link>
 
-  <ProNavItem
-    isPro={billing.isPro}
-    appHref="/app/logs"
-    pricingUrl={pricingUrl}
+  <Link
+    to={
+      billing.isPro
+        ? "/app/logs"
+        : "/app/plans"
+    }
   >
-    Validation Logs
-  </ProNavItem>
+    {billing.isPro
+      ? "Validation Logs"
+      : "👑 Validation Logs"}
+  </Link>
 
   <Link to="/app/settings">
     Settings
   </Link>
 
-  <a
-    href={pricingUrl}
-    target="_top"
-  >
+  <Link to="/app/plans">
     Plans & Billing
-  </a>
+  </Link>
 </NavMenu>
 
       <Outlet
