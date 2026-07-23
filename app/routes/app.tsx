@@ -22,22 +22,58 @@ import {
   NavMenu,
 } from "@shopify/app-bridge-react";
 
-import { authenticate } from "../shopify.server";
+import {
+  authenticate,
+} from "../shopify.server";
+
+import {
+  getOrCreateShopByDomain,
+} from "../lib/pincode.server";
+
+import {
+  getBillingStatus,
+} from "../lib/billing.server";
 
 export const loader = async ({
   request,
 }: LoaderFunctionArgs) => {
-  await authenticate.admin(request);
+  const {
+    billing,
+    session,
+  } = await authenticate.admin(request);
+
+  /*
+   * Keep creating/fetching the local Shop record.
+   */
+  await getOrCreateShopByDomain(
+    session.shop,
+  );
+
+  const billingStatus =
+    await getBillingStatus(billing);
 
   return {
     apiKey:
       process.env.SHOPIFY_API_KEY || "",
+
+    billing: {
+      plan: billingStatus.plan,
+      isPro: billingStatus.isPro,
+      hasActivePayment:
+        billingStatus.hasActivePayment,
+      subscriptionName:
+        billingStatus.subscriptionName,
+      isTest:
+        billingStatus.isTest,
+    },
   };
 };
 
 export default function App() {
-  const { apiKey } =
-    useLoaderData<typeof loader>();
+  const {
+    apiKey,
+    billing,
+  } = useLoaderData<typeof loader>();
 
   return (
     <AppProvider
@@ -65,21 +101,23 @@ export default function App() {
         </a>
 
         <Link to="/app/analytics">
-  Analytics
-</Link>
+          Analytics
+        </Link>
 
-<Link to="/app/logs">
-  Validation Logs
-</Link>
+        <Link to="/app/logs">
+          Validation Logs
+        </Link>
 
         <Link to="/app/settings">
           Settings
         </Link>
-
-        
       </NavMenu>
 
-      <Outlet />
+      <Outlet
+        context={{
+          billing,
+        }}
+      />
     </AppProvider>
   );
 }
