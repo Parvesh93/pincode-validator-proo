@@ -143,6 +143,47 @@ export const loader = async ({
   };
 };
 
+type ProNavItemProps = {
+  isPro: boolean;
+  appHref: string;
+  pricingUrl: string;
+  children: React.ReactNode;
+  external?: boolean;
+};
+
+function ProNavItem({
+  isPro,
+  appHref,
+  pricingUrl,
+  children,
+  external = false,
+}: ProNavItemProps) {
+  if (!isPro) {
+    return (
+      <a
+        href={pricingUrl}
+        target="_top"
+      >
+        🔒 {children}
+      </a>
+    );
+  }
+
+  if (external) {
+    return (
+      <a href={appHref}>
+        {children}
+      </a>
+    );
+  }
+
+  return (
+    <Link to={appHref}>
+      {children}
+    </Link>
+  );
+}
+
 export default function App() {
   const {
     apiKey,
@@ -170,57 +211,38 @@ export default function App() {
     Manage Pincodes
   </Link>
 
-  {billing.isPro ? (
-    <Link to="/app/import">
-      Import CSV
-    </Link>
-  ) : (
-    <a
-      href={pricingUrl}
-      target="_top"
-    >
-      🔒 Import CSV
-    </a>
-  )}
+  <ProNavItem
+    isPro={billing.isPro}
+    appHref="/app/import"
+    pricingUrl={pricingUrl}
+  >
+    Import CSV
+  </ProNavItem>
 
-  {billing.isPro ? (
-    <a href="/app/pincodes/export">
-      Export CSV
-    </a>
-  ) : (
-    <a
-      href={pricingUrl}
-      target="_top"
-    >
-      🔒 Export CSV
-    </a>
-  )}
+  <ProNavItem
+    isPro={billing.isPro}
+    appHref="/app/pincodes/export"
+    pricingUrl={pricingUrl}
+    external
+  >
+    Export CSV
+  </ProNavItem>
 
-  {billing.isPro ? (
-    <Link to="/app/analytics">
-      Analytics
-    </Link>
-  ) : (
-    <a
-      href={pricingUrl}
-      target="_top"
-    >
-      🔒 Analytics
-    </a>
-  )}
+  <ProNavItem
+    isPro={billing.isPro}
+    appHref="/app/analytics"
+    pricingUrl={pricingUrl}
+  >
+    Analytics
+  </ProNavItem>
 
-  {billing.isPro ? (
-    <Link to="/app/logs">
-      Validation Logs
-    </Link>
-  ) : (
-    <a
-      href={pricingUrl}
-      target="_top"
-    >
-      🔒 Validation Logs
-    </a>
-  )}
+  <ProNavItem
+    isPro={billing.isPro}
+    appHref="/app/logs"
+    pricingUrl={pricingUrl}
+  >
+    Validation Logs
+  </ProNavItem>
 
   <Link to="/app/settings">
     Settings
