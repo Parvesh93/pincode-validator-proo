@@ -452,6 +452,17 @@ export function SettingsStyles() {
             text-align: left;
           }
         }
+
+        .settings-option-card-disabled{
+    opacity:.55;
+    filter:grayscale(.2);
+    position:relative;
+}
+
+.settings-option-card-disabled .Polaris-Checkbox{
+    pointer-events:none;
+}
+
       `}
     </style>
   );

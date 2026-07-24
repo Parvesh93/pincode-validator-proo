@@ -167,6 +167,7 @@ export type SettingsFormSetters = {
 export type SettingsSectionProps = {
   values: SettingsFormValues;
   setters: SettingsFormSetters;
+  isPro?: boolean;
 };
 
 export type SettingsHeroProps = {

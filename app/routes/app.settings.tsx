@@ -51,6 +51,10 @@ import type {
   SettingsFormValues,
 } from "../types/settings";
 
+import {
+  getBillingStatus,
+} from "../lib/billing.server";
+
 type ActionData = {
   success?: string;
   error?: string;
@@ -138,15 +142,26 @@ function isPopupTheme(
 export async function loader({
   request,
 }: LoaderFunctionArgs) {
-  const { session } =
-    await authenticate.admin(
-      request,
-    );
+  const {
+  billing,
+  session,
+} = await authenticate.admin(
+  request,
+);
 
   const shop =
     await getOrCreateShopByDomain(
       session.shop,
     );
+
+    const billingStatus =
+  await getBillingStatus(
+    billing,
+    shop.id,
+  );
+
+const isPro =
+  billingStatus.isPro;
 
   const settings =
     await getSettingsByShopId(
@@ -162,14 +177,20 @@ export async function loader({
     "light";
 
   return data({
-    settings: {
-      restrictAddToCart:
-        settings?.restrictAddToCart ??
-        true,
+    isPro,
 
-      restrictBuyNow:
-        settings?.restrictBuyNow ??
-        true,
+  settings: {
+    restrictAddToCart:
+      isPro
+        ? settings?.restrictAddToCart ??
+          false
+        : false,
+
+    restrictBuyNow:
+      isPro
+        ? settings?.restrictBuyNow ??
+          false
+        : false,
 
       enableEmbed:
         settings?.enableEmbed ??
@@ -200,8 +221,10 @@ export async function loader({
         7,
 
       popupEnabled:
-        settings?.popupEnabled ??
-        false,
+  isPro
+    ? settings?.popupEnabled ??
+      false
+    : false,
 
       popupTitle:
         settings?.popupTitle ??
@@ -288,15 +311,26 @@ export async function loader({
 export async function action({
   request,
 }: ActionFunctionArgs) {
-  const { session } =
-    await authenticate.admin(
-      request,
-    );
+  const {
+  billing,
+  session,
+} = await authenticate.admin(
+  request,
+);
 
   const shop =
     await getOrCreateShopByDomain(
       session.shop,
     );
+
+    const billingStatus =
+  await getBillingStatus(
+    billing,
+    shop.id,
+  );
+
+const isPro =
+  billingStatus.isPro;
 
   const formData =
     await request.formData();
@@ -459,334 +493,408 @@ export async function action({
       );
     }
 
-    if (!popupTitle) {
-      return data<ActionData>(
-        {
-          error:
-            "Popup title is required.",
-        },
-        {
-          status: 400,
-        },
-      );
-    }
+    if (isPro) {
+  if (!popupTitle) {
+    return data<ActionData>(
+      {
+        error:
+          "Popup title is required.",
+      },
+      {
+        status: 400,
+      },
+    );
+  }
 
-    if (
-      popupTitle.length >
-      100
-    ) {
-      return data<ActionData>(
-        {
-          error:
-            "Popup title cannot be longer than 100 characters.",
-        },
-        {
-          status: 400,
-        },
-      );
-    }
+  if (
+    popupTitle.length > 100
+  ) {
+    return data<ActionData>(
+      {
+        error:
+          "Popup title cannot be longer than 100 characters.",
+      },
+      {
+        status: 400,
+      },
+    );
+  }
 
-    if (
-      popupDescription.length >
-      250
-    ) {
-      return data<ActionData>(
-        {
-          error:
-            "Popup description cannot be longer than 250 characters.",
-        },
-        {
-          status: 400,
-        },
-      );
-    }
+  if (
+    popupDescription.length >
+    250
+  ) {
+    return data<ActionData>(
+      {
+        error:
+          "Popup description cannot be longer than 250 characters.",
+      },
+      {
+        status: 400,
+      },
+    );
+  }
 
-    if (!popupButtonText) {
-      return data<ActionData>(
-        {
-          error:
-            "Popup button text is required.",
-        },
-        {
-          status: 400,
-        },
-      );
-    }
+  if (!popupButtonText) {
+    return data<ActionData>(
+      {
+        error:
+          "Popup button text is required.",
+      },
+      {
+        status: 400,
+      },
+    );
+  }
 
-    if (
-      popupButtonText.length >
-      50
-    ) {
-      return data<ActionData>(
-        {
-          error:
-            "Popup button text cannot be longer than 50 characters.",
-        },
-        {
-          status: 400,
-        },
-      );
-    }
+  if (
+    popupButtonText.length > 50
+  ) {
+    return data<ActionData>(
+      {
+        error:
+          "Popup button text cannot be longer than 50 characters.",
+      },
+      {
+        status: 400,
+      },
+    );
+  }
 
-    if (
-      !isPopupTrigger(
-        popupTriggerRaw,
-      )
-    ) {
-      return data<ActionData>(
-        {
-          error:
-            "Select a valid popup trigger.",
-        },
-        {
-          status: 400,
-        },
-      );
-    }
+  if (
+    !isPopupTrigger(
+      popupTriggerRaw,
+    )
+  ) {
+    return data<ActionData>(
+      {
+        error:
+          "Select a valid popup trigger.",
+      },
+      {
+        status: 400,
+      },
+    );
+  }
 
-    if (
-      popupDelaySeconds ===
-        null ||
-      popupDelaySeconds < 0 ||
-      popupDelaySeconds > 60
-    ) {
-      return data<ActionData>(
-        {
-          error:
-            "Popup delay must be a whole number between 0 and 60 seconds.",
-        },
-        {
-          status: 400,
-        },
-      );
-    }
+  if (
+    popupDelaySeconds === null ||
+    popupDelaySeconds < 0 ||
+    popupDelaySeconds > 60
+  ) {
+    return data<ActionData>(
+      {
+        error:
+          "Popup delay must be a whole number between 0 and 60 seconds.",
+      },
+      {
+        status: 400,
+      },
+    );
+  }
 
-    if (
-      popupRememberDays ===
-        null ||
-      popupRememberDays < 1 ||
-      popupRememberDays >
-        365
-    ) {
-      return data<ActionData>(
-        {
-          error:
-            "Popup remember days must be a whole number between 1 and 365.",
-        },
-        {
-          status: 400,
-        },
-      );
-    }
+  if (
+    popupRememberDays === null ||
+    popupRememberDays < 1 ||
+    popupRememberDays > 365
+  ) {
+    return data<ActionData>(
+      {
+        error:
+          "Popup remember days must be a whole number between 1 and 365.",
+      },
+      {
+        status: 400,
+      },
+    );
+  }
 
-    if (
-      !isPopupTheme(
-        popupThemeRaw,
-      )
-    ) {
-      return data<ActionData>(
-        {
-          error:
-            "Select a valid popup theme.",
-        },
-        {
-          status: 400,
-        },
-      );
-    }
+  if (
+    !isPopupTheme(
+      popupThemeRaw,
+    )
+  ) {
+    return data<ActionData>(
+      {
+        error:
+          "Select a valid popup theme.",
+      },
+      {
+        status: 400,
+      },
+    );
+  }
 
-    if (
-      popupWidth === null ||
-      popupWidth < 320 ||
-      popupWidth > 700
-    ) {
-      return data<ActionData>(
-        {
-          error:
-            "Popup width must be a whole number between 320 and 700 pixels.",
-        },
-        {
-          status: 400,
-        },
-      );
-    }
+  if (
+    popupWidth === null ||
+    popupWidth < 320 ||
+    popupWidth > 700
+  ) {
+    return data<ActionData>(
+      {
+        error:
+          "Popup width must be a whole number between 320 and 700 pixels.",
+      },
+      {
+        status: 400,
+      },
+    );
+  }
 
-    if (
-      popupAutoCloseDelay ===
-        null ||
-      popupAutoCloseDelay < 0 ||
-      popupAutoCloseDelay >
-        10000
-    ) {
-      return data<ActionData>(
-        {
-          error:
-            "Auto-close delay must be a whole number between 0 and 10000 milliseconds.",
-        },
-        {
-          status: 400,
-        },
-      );
-    }
+  if (
+    popupAutoCloseDelay ===
+      null ||
+    popupAutoCloseDelay < 0 ||
+    popupAutoCloseDelay >
+      10000
+  ) {
+    return data<ActionData>(
+      {
+        error:
+          "Auto-close delay must be a whole number between 0 and 10000 milliseconds.",
+      },
+      {
+        status: 400,
+      },
+    );
+  }
+}
 
     const popupEnabled =
-      toBool(
+  isPro
+    ? toBool(
         formData.get(
           "popupEnabled",
         ),
-      );
+      )
+    : false;
 
     const popupShowHome =
-      toBool(
+  isPro
+    ? toBool(
         formData.get(
           "popupShowHome",
         ),
-      );
+      )
+    : false;
 
-    const popupShowProduct =
-      toBool(
+const popupShowProduct =
+  isPro
+    ? toBool(
         formData.get(
           "popupShowProduct",
         ),
-      );
+      )
+    : false;
 
-    const popupShowCollection =
-      toBool(
+const popupShowCollection =
+  isPro
+    ? toBool(
         formData.get(
           "popupShowCollection",
         ),
-      );
+      )
+    : false;
 
-    const popupShowCart =
-      toBool(
+const popupShowCart =
+  isPro
+    ? toBool(
         formData.get(
           "popupShowCart",
         ),
-      );
+      )
+    : false;
 
-    const popupShowPages =
-      toBool(
+const popupShowPages =
+  isPro
+    ? toBool(
         formData.get(
           "popupShowPages",
         ),
-      );
+      )
+    : false;
 
     if (
-      popupEnabled &&
-      !popupShowHome &&
-      !popupShowProduct &&
-      !popupShowCollection &&
-      !popupShowCart &&
-      !popupShowPages
-    ) {
-      return data<ActionData>(
-        {
-          error:
-            "Select at least one storefront page type when the popup is enabled.",
-        },
-        {
-          status: 400,
-        },
-      );
-    }
+  isPro &&
+  popupEnabled &&
+  !popupShowHome &&
+  !popupShowProduct &&
+  !popupShowCollection &&
+  !popupShowCart &&
+  !popupShowPages
+) {
+  return data<ActionData>(
+    {
+      error:
+        "Select at least one storefront page type when the popup is enabled.",
+    },
+    {
+      status: 400,
+    },
+  );
+}
 
-    const savedSettings =
-      await upsertSettings({
-      shopId: shop.id,
+    const safePopupTrigger: PopupTrigger =
+  isPro &&
+  isPopupTrigger(popupTriggerRaw)
+    ? popupTriggerRaw
+    : "delay";
 
-      restrictAddToCart:
-        toBool(
-          formData.get(
-            "restrictAddToCart",
-          ),
+const safePopupDelaySeconds =
+  isPro &&
+  popupDelaySeconds !== null
+    ? popupDelaySeconds
+    : 3;
+
+const safePopupRememberDays =
+  isPro &&
+  popupRememberDays !== null
+    ? popupRememberDays
+    : 7;
+
+const safePopupTheme: PopupTheme =
+  isPro &&
+  isPopupTheme(popupThemeRaw)
+    ? popupThemeRaw
+    : "light";
+
+const safePopupWidth =
+  isPro &&
+  popupWidth !== null
+    ? popupWidth
+    : 420;
+
+const safePopupAutoCloseDelay =
+  isPro &&
+  popupAutoCloseDelay !== null
+    ? popupAutoCloseDelay
+    : 1500;
+
+const savedSettings =
+  await upsertSettings({
+    shopId: shop.id,
+
+    restrictAddToCart:
+      isPro
+        ? toBool(
+            formData.get(
+              "restrictAddToCart",
+            ),
+          )
+        : false,
+
+    restrictBuyNow:
+      isPro
+        ? toBool(
+            formData.get(
+              "restrictBuyNow",
+            ),
+          )
+        : false,
+
+    enableEmbed:
+      toBool(
+        formData.get(
+          "enableEmbed",
         ),
+      ),
 
-      restrictBuyNow:
-        toBool(
-          formData.get(
-            "restrictBuyNow",
-          ),
+    enableBlock:
+      toBool(
+        formData.get(
+          "enableBlock",
         ),
+      ),
 
-      enableEmbed:
-        toBool(
-          formData.get(
-            "enableEmbed",
-          ),
+    requireValidation:
+      toBool(
+        formData.get(
+          "requireValidation",
         ),
+      ),
 
-      enableBlock:
-        toBool(
-          formData.get(
-            "enableBlock",
-          ),
-        ),
+    successMessage,
+    failureMessage,
+    defaultCountry,
+    rememberPincodeDays,
 
-      requireValidation:
-        toBool(
-          formData.get(
-            "requireValidation",
-          ),
-        ),
+    popupEnabled,
 
-      successMessage,
-      failureMessage,
-      defaultCountry,
-      rememberPincodeDays,
+    popupTitle:
+      isPro
+        ? popupTitle
+        : DEFAULT_POPUP_TITLE,
 
-      popupEnabled,
-      popupTitle,
-      popupDescription,
-      popupButtonText,
-      popupTrigger:
-        popupTriggerRaw,
+    popupDescription:
+      isPro
+        ? popupDescription
+        : DEFAULT_POPUP_DESCRIPTION,
 
-      popupDelaySeconds,
+    popupButtonText:
+      isPro
+        ? popupButtonText
+        : DEFAULT_POPUP_BUTTON_TEXT,
 
-      popupRemember:
-        toBool(
-          formData.get(
-            "popupRemember",
-          ),
-        ),
+    popupTrigger:
+      safePopupTrigger,
 
-      popupRememberDays,
+    popupDelaySeconds:
+      safePopupDelaySeconds,
 
-      popupShowClose:
-        toBool(
-          formData.get(
-            "popupShowClose",
-          ),
-        ),
+    popupRemember:
+      isPro
+        ? toBool(
+            formData.get(
+              "popupRemember",
+            ),
+          )
+        : false,
 
-      popupCloseOnOverlay:
-        toBool(
-          formData.get(
-            "popupCloseOnOverlay",
-          ),
-        ),
+    popupRememberDays:
+      safePopupRememberDays,
 
-      popupTheme:
-        popupThemeRaw,
+    popupShowClose:
+      isPro
+        ? toBool(
+            formData.get(
+              "popupShowClose",
+            ),
+          )
+        : false,
 
-      popupWidth,
+    popupCloseOnOverlay:
+      isPro
+        ? toBool(
+            formData.get(
+              "popupCloseOnOverlay",
+            ),
+          )
+        : false,
 
-      popupShowHome,
-      popupShowProduct,
-      popupShowCollection,
-      popupShowCart,
-      popupShowPages,
+    popupTheme:
+      safePopupTheme,
 
-      popupAutoClose:
-        toBool(
-          formData.get(
-            "popupAutoClose",
-          ),
-        ),
+    popupWidth:
+      safePopupWidth,
 
-      popupAutoCloseDelay,
+    popupShowHome,
+    popupShowProduct,
+    popupShowCollection,
+    popupShowCart,
+    popupShowPages,
 
-    });
+    popupAutoClose:
+      isPro
+        ? toBool(
+            formData.get(
+              "popupAutoClose",
+            ),
+          )
+        : false,
+
+    popupAutoCloseDelay:
+      safePopupAutoCloseDelay,
+  });
 
     console.log(
       "[Settings] Saved record:",
@@ -816,8 +924,11 @@ export async function action({
 }
 
 export default function SettingsPage() {
-  const { settings } =
-    useLoaderData<typeof loader>();
+  const {
+  settings,
+  isPro,
+} =
+  useLoaderData<typeof loader>();
 
   const actionData =
     useActionData<
@@ -841,18 +952,23 @@ export default function SettingsPage() {
   );
 
   const [
-    restrictAddToCart,
-    setRestrictAddToCart,
-  ] = useState(
-    settings.restrictAddToCart,
-  );
+  restrictAddToCart,
+  setRestrictAddToCart,
+] = useState(
+  isPro
+    ? settings.restrictAddToCart
+    : false,
+);
 
-  const [
-    restrictBuyNow,
-    setRestrictBuyNow,
-  ] = useState(
-    settings.restrictBuyNow,
-  );
+const [
+  restrictBuyNow,
+  setRestrictBuyNow,
+] = useState(
+  isPro
+    ? settings.restrictBuyNow
+    : false,
+);
+
 
   const [
     enableEmbed,
@@ -899,11 +1015,13 @@ export default function SettingsPage() {
   );
 
   const [
-    popupEnabled,
-    setPopupEnabled,
-  ] = useState(
-    settings.popupEnabled,
-  );
+  popupEnabled,
+  setPopupEnabled,
+] = useState(
+  isPro
+    ? settings.popupEnabled
+    : false,
+);
 
   const [
     popupTitle,
@@ -1044,15 +1162,27 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setRequireValidation(settings.requireValidation);
-    setRestrictAddToCart(settings.restrictAddToCart);
-    setRestrictBuyNow(settings.restrictBuyNow);
+    setRestrictAddToCart(
+  isPro
+    ? settings.restrictAddToCart
+    : false,
+);
+    setRestrictBuyNow(
+  isPro
+    ? settings.restrictBuyNow
+    : false,
+);
     setEnableEmbed(settings.enableEmbed);
     setEnableBlock(settings.enableBlock);
     setSuccessMessage(settings.successMessage);
     setFailureMessage(settings.failureMessage);
     setDefaultCountry(settings.defaultCountry);
     setRememberPincodeDays(String(settings.rememberPincodeDays));
-    setPopupEnabled(settings.popupEnabled);
+    setPopupEnabled(
+  isPro
+    ? settings.popupEnabled
+    : false,
+);
     setPopupTitle(settings.popupTitle);
     setPopupDescription(settings.popupDescription);
     setPopupButtonText(settings.popupButtonText);
@@ -1071,7 +1201,7 @@ export default function SettingsPage() {
     setPopupShowPages(settings.popupShowPages);
     setPopupAutoClose(settings.popupAutoClose);
     setPopupAutoCloseDelay(String(settings.popupAutoCloseDelay));
-  }, [settings]);
+  }, [settings, isPro]);
 
   const values: SettingsFormValues = {
     restrictAddToCart,
@@ -1355,9 +1485,10 @@ export default function SettingsPage() {
             <Layout>
               <Layout.Section>
                 <ValidationSettings
-                  values={values}
-                  setters={setters}
-                />
+  values={values}
+  setters={setters}
+  isPro={isPro}
+/>
               </Layout.Section>
 
               <Layout.Section variant="oneThird">
@@ -1395,25 +1526,88 @@ export default function SettingsPage() {
               </Layout.Section>
 
               <Layout.Section>
-                <PopupSettings
-                  values={values}
-                  setters={setters}
-                />
-              </Layout.Section>
+  <fieldset
+    disabled={!isPro}
+    className={
+      isPro
+        ? "pro-settings-section"
+        : "pro-settings-section pro-settings-section--locked"
+    }
+  >
+    {!isPro ? (
+      <div className="pro-settings-lock">
+        <span>
+          👑 Pro feature
+        </span>
 
-              <Layout.Section>
-                <PopupBehaviourSettings
-                  values={values}
-                  setters={setters}
-                />
-              </Layout.Section>
+        <a href="/app/billing">
+          View plans
+        </a>
+      </div>
+    ) : null}
 
-              <Layout.Section>
-                <PopupTargetingSettings
-                  values={values}
-                  setters={setters}
-                />
-              </Layout.Section>
+    <PopupSettings
+      values={values}
+      setters={setters}
+    />
+  </fieldset>
+</Layout.Section>
+
+<Layout.Section>
+  <fieldset
+    disabled={!isPro}
+    className={
+      isPro
+        ? "pro-settings-section"
+        : "pro-settings-section pro-settings-section--locked"
+    }
+  >
+    {!isPro ? (
+      <div className="pro-settings-lock">
+        <span>
+          👑 Pro feature
+        </span>
+
+        <a href="/app/billing">
+          View plans
+        </a>
+      </div>
+    ) : null}
+
+    <PopupBehaviourSettings
+      values={values}
+      setters={setters}
+    />
+  </fieldset>
+</Layout.Section>
+
+<Layout.Section>
+  <fieldset
+    disabled={!isPro}
+    className={
+      isPro
+        ? "pro-settings-section"
+        : "pro-settings-section pro-settings-section--locked"
+    }
+  >
+    {!isPro ? (
+      <div className="pro-settings-lock">
+        <span>
+          👑 Pro feature
+        </span>
+
+        <a href="/app/billing">
+          View plans
+        </a>
+      </div>
+    ) : null}
+
+    <PopupTargetingSettings
+      values={values}
+      setters={setters}
+    />
+  </fieldset>
+</Layout.Section>
 
               <Layout.Section>
                 <DefaultsSettings
@@ -1432,6 +1626,61 @@ export default function SettingsPage() {
             </Layout>
           </Form>
         </Layout>
+
+
+        <style>
+  {`
+    .pro-settings-section {
+      min-width: 0;
+      margin: 0;
+      padding: 0;
+      border: 0;
+    }
+
+    .pro-settings-section--locked {
+      position: relative;
+      opacity: 0.58;
+      filter: grayscale(0.35);
+    }
+
+    .pro-settings-section--locked input,
+    .pro-settings-section--locked button,
+    .pro-settings-section--locked select,
+    .pro-settings-section--locked textarea {
+      cursor: not-allowed !important;
+    }
+
+    .pro-settings-lock {
+      position: relative;
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+      padding: 10px 14px;
+      border: 1px solid #d4d6d8;
+      border-radius: 10px;
+      background: #f1f2f3;
+      color: #616161;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .pro-settings-lock a {
+      color: #005bd3;
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+      pointer-events: auto;
+    }
+
+    .pro-settings-lock a:hover {
+      text-decoration: underline;
+    }
+  `}
+</style>
+
 
         <SettingsStyles />
       </Page>

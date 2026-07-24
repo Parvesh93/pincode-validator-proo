@@ -1,8 +1,11 @@
 import {
+  Badge,
   BlockStack,
   Box,
   Card,
   Checkbox,
+  InlineStack,
+  Link,
   Text,
 } from "@shopify/polaris";
 
@@ -13,6 +16,7 @@ import type {
 export function ValidationSettings({
   values,
   setters,
+  isPro = false,
 }: SettingsSectionProps) {
   const {
     requireValidation,
@@ -51,6 +55,7 @@ export function ValidationSettings({
         </div>
 
         <div className="settings-option-grid">
+
           <div
             className={
               requireValidation
@@ -69,35 +74,88 @@ export function ValidationSettings({
 
           <div
             className={
-              restrictAddToCart
+              !isPro
+                ? "settings-option-card settings-option-card-disabled"
+                : restrictAddToCart
                 ? "settings-option-card settings-option-card-active"
                 : "settings-option-card"
             }
           >
-            <Checkbox
-              label="Restrict Add to Cart"
-              name="restrictAddToCart"
-              checked={restrictAddToCart}
-              onChange={setRestrictAddToCart}
-              helpText="Disable visible Add to Cart buttons until validation succeeds."
-            />
+            <BlockStack gap="200">
+
+              <InlineStack
+                align="space-between"
+                blockAlign="center"
+              >
+                <Badge tone="attention">
+                  Pro
+                </Badge>
+
+                {!isPro && (
+                  <Link url="/app/billing">
+                    Upgrade
+                  </Link>
+                )}
+              </InlineStack>
+
+              <Checkbox
+                label="Restrict Add to Cart"
+                name="restrictAddToCart"
+                checked={
+                  isPro
+                    ? restrictAddToCart
+                    : false
+                }
+                disabled={!isPro}
+                onChange={setRestrictAddToCart}
+                helpText="Disable visible Add to Cart buttons until validation succeeds."
+              />
+
+            </BlockStack>
           </div>
 
           <div
             className={
-              restrictBuyNow
+              !isPro
+                ? "settings-option-card settings-option-card-disabled"
+                : restrictBuyNow
                 ? "settings-option-card settings-option-card-active"
                 : "settings-option-card"
             }
           >
-            <Checkbox
-              label="Restrict Buy Now"
-              name="restrictBuyNow"
-              checked={restrictBuyNow}
-              onChange={setRestrictBuyNow}
-              helpText="Disable supported dynamic checkout buttons until validation succeeds."
-            />
+            <BlockStack gap="200">
+
+              <InlineStack
+                align="space-between"
+                blockAlign="center"
+              >
+                <Badge tone="attention">
+                  Pro
+                </Badge>
+
+                {!isPro && (
+                  <Link url="/app/billing">
+                    Upgrade
+                  </Link>
+                )}
+              </InlineStack>
+
+              <Checkbox
+                label="Restrict Buy Now"
+                name="restrictBuyNow"
+                checked={
+                  isPro
+                    ? restrictBuyNow
+                    : false
+                }
+                disabled={!isPro}
+                onChange={setRestrictBuyNow}
+                helpText="Disable supported dynamic checkout buttons until validation succeeds."
+              />
+
+            </BlockStack>
           </div>
+
         </div>
       </BlockStack>
     </Card>
