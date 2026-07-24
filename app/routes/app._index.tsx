@@ -1116,11 +1116,10 @@ function ActionCard({
 
       {locked ? (
         <s-button
-          onClick={onUpgrade}
-          variant="primary"
-        >
-          Upgrade to Pro
-        </s-button>
+  href="/app/billing"
+>
+  Upgrade to Pro
+</s-button>
       ) : (
         <s-link href={href}>
           {buttonText}
