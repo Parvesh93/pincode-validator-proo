@@ -1233,7 +1233,7 @@ export default function Index() {
               {isPro ? (
                 <s-button href="/app/import">Import CSV</s-button>
               ) : (
-                <s-button onClick={openPricingPage} variant="primary">
+                <s-button onClick={openPricingPage}>
                   Upgrade to Pro
                 </s-button>
               )}
