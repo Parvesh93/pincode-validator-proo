@@ -1321,17 +1321,19 @@ const [
           ) : null}
 
           <Layout.Section>
-            <SettingsHero
-              requireValidation={
-                requireValidation
-              }
-              popupEnabled={
-                popupEnabled
-              }
-            />
-          </Layout.Section>
+  <div className="settings-hero-wrapper">
+    <SettingsHero
+      requireValidation={
+        requireValidation
+      }
+      popupEnabled={
+        popupEnabled
+      }
+    />
+  </div>
+</Layout.Section>
 
-          <Form method="post">
+<Form method="post">
             <input
               type="hidden"
               name="requireValidation"
@@ -1678,6 +1680,17 @@ const [
     .pro-settings-lock a:hover {
       text-decoration: underline;
     }
+
+    .settings-hero-wrapper {
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 768px) {
+      .settings-hero-wrapper {
+        margin-bottom: 18px;
+      }
+    }
+
   `}
 </style>
 
