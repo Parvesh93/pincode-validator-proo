@@ -13,6 +13,7 @@ import enTranslations from "@shopify/polaris/locales/en.json";
 
 import {
   Form,
+  Link,
   data,
   useActionData,
   useLoaderData,
@@ -1542,9 +1543,12 @@ const [
           👑 Pro feature
         </span>
 
-        <a href="/app/billing">
-          View plans
-        </a>
+        <Link
+  to="/app/billing"
+  className="pro-settings-plan-link"
+>
+  View plans
+</Link>
       </div>
     ) : null}
 
@@ -1669,17 +1673,20 @@ const [
       font-weight: 700;
     }
 
-    .pro-settings-lock a {
-      color: #005bd3;
-      font-size: 13px;
-      font-weight: 700;
-      text-decoration: none;
-      pointer-events: auto;
-    }
+    .pro-settings-plan-link {
+  position: relative;
+  z-index: 5;
+  color: #005bd3;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  pointer-events: auto;
+  cursor: pointer;
+}
 
-    .pro-settings-lock a:hover {
-      text-decoration: underline;
-    }
+.pro-settings-plan-link:hover {
+  text-decoration: underline;
+}
 
     .settings-hero-wrapper {
       margin-bottom: 24px;

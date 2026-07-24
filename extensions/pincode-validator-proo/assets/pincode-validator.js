@@ -9,14 +9,15 @@
     "pv-purchase-restriction-description";
 
   var defaultSettings = {
-    restrictAddToCart: true,
-    restrictBuyNow: true,
-    requireValidation: true,
-    rememberPincodeDays: 7,
-    successMessage: "Delivery available for this pincode.",
-    failureMessage:
-      "Sorry, delivery is not available for this pincode.",
-  };
+  restrictAddToCart: false,
+  restrictBuyNow: false,
+  requireValidation: true,
+  rememberPincodeDays: 7,
+  successMessage:
+    "Delivery available for this pincode.",
+  failureMessage:
+    "Sorry, delivery is not available for this pincode.",
+};
 
   var ADD_TO_CART_SELECTORS = [
     'button[name="add"]',

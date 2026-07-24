@@ -5,9 +5,12 @@ import {
   Card,
   Checkbox,
   InlineStack,
-  Link,
   Text,
 } from "@shopify/polaris";
+
+import {
+  Link,
+} from "react-router";
 
 import type {
   SettingsSectionProps,
@@ -92,9 +95,12 @@ export function ValidationSettings({
                 </Badge>
 
                 {!isPro && (
-                  <Link url="/app/billing">
-                    Upgrade
-                  </Link>
+                  <Link
+  to="/app/billing"
+  className="settings-upgrade-link"
+>
+  Upgrade
+</Link>
                 )}
               </InlineStack>
 
@@ -134,9 +140,12 @@ export function ValidationSettings({
                 </Badge>
 
                 {!isPro && (
-                  <Link url="/app/billing">
-                    Upgrade
-                  </Link>
+                  <Link
+  to="/app/billing"
+  className="settings-upgrade-link"
+>
+  Upgrade
+</Link>
                 )}
               </InlineStack>
 

@@ -116,7 +116,9 @@ function getStorefrontSettings(
       }
     | null
     | undefined,
+  isPro: boolean,
 ): StorefrontSettings {
+  
   const popupTrigger:
     | "immediate"
     | "delay"
@@ -135,10 +137,14 @@ function getStorefrontSettings(
 
   return {
     restrictAddToCart:
-      settings?.restrictAddToCart ?? true,
+  isPro
+    ? settings?.restrictAddToCart ?? false
+    : false,
 
-    restrictBuyNow:
-      settings?.restrictBuyNow ?? true,
+restrictBuyNow:
+  isPro
+    ? settings?.restrictBuyNow ?? false
+    : false,
 
     requireValidation:
       settings?.requireValidation ?? true,
@@ -165,7 +171,9 @@ function getStorefrontSettings(
       "India",
 
     popupEnabled:
-      settings?.popupEnabled ?? false,
+  isPro
+    ? settings?.popupEnabled ?? false
+    : false,
 
     popupTitle:
       settings?.popupTitle?.trim() ||
@@ -195,7 +203,9 @@ function getStorefrontSettings(
       ),
 
     popupRemember:
-      settings?.popupRemember ?? true,
+  isPro
+    ? settings?.popupRemember ?? true
+    : false,
 
     popupRememberDays:
       Math.min(
@@ -207,10 +217,14 @@ function getStorefrontSettings(
       ),
 
     popupShowClose:
-      settings?.popupShowClose ?? true,
+  isPro
+    ? settings?.popupShowClose ?? true
+    : false,
 
     popupCloseOnOverlay:
-      settings?.popupCloseOnOverlay ?? true,
+  isPro
+    ? settings?.popupCloseOnOverlay ?? true
+    : false,
 
     popupTheme,
 
@@ -223,23 +237,35 @@ function getStorefrontSettings(
         ),
       ),
 
-    popupShowHome:
-      settings?.popupShowHome ?? true,
+  popupShowHome:
+  isPro
+    ? settings?.popupShowHome ?? true
+    : false,
 
-    popupShowProduct:
-      settings?.popupShowProduct ?? true,
+popupShowProduct:
+  isPro
+    ? settings?.popupShowProduct ?? true
+    : false,
 
-    popupShowCollection:
-      settings?.popupShowCollection ?? true,
+popupShowCollection:
+  isPro
+    ? settings?.popupShowCollection ?? true
+    : false,
 
-    popupShowCart:
-      settings?.popupShowCart ?? false,
+popupShowCart:
+  isPro
+    ? settings?.popupShowCart ?? false
+    : false,
 
-    popupShowPages:
-      settings?.popupShowPages ?? false,
+popupShowPages:
+  isPro
+    ? settings?.popupShowPages ?? false
+    : false,
 
-    popupAutoClose:
-      settings?.popupAutoClose ?? true,
+popupAutoClose:
+  isPro
+    ? settings?.popupAutoClose ?? true
+    : false,
 
     popupAutoCloseDelay:
       Math.min(
@@ -482,6 +508,8 @@ export async function action({
     },
   });
 
+  
+
 if (!shopRecord) {
   return Response.json(
     {
@@ -496,10 +524,14 @@ if (!shopRecord) {
   );
 }
 
+const isPro =
+  shopRecord.selectedPlan === "pro";
+
     const settings =
-      getStorefrontSettings(
-        shopRecord.settings,
-      );
+  getStorefrontSettings(
+    shopRecord.settings,
+    isPro,
+  );
 
     /*
      * The storefront script may send an empty pincode

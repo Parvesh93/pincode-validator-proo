@@ -463,6 +463,17 @@ export function SettingsStyles() {
     pointer-events:none;
 }
 
+.settings-upgrade-link {
+  color: #005bd3;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.settings-upgrade-link:hover {
+  text-decoration: underline;
+}
+
       `}
     </style>
   );
