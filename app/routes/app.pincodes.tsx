@@ -6,6 +6,7 @@ import {
   useActionData,
   useLoaderData,
   useNavigation,
+  useOutletContext,
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
 } from "react-router";
@@ -21,6 +22,10 @@ import {
   updatePincode,
   upsertSinglePincode,
 } from "../lib/pincode.server";
+
+import type {
+  AppBillingContext,
+} from "../types/billing";
 
 type ActionData = {
   error?: string;
@@ -584,6 +589,14 @@ function StatusBadge({
 }
 
 export default function PincodesPage() {
+
+  const {
+    billing,
+  } =
+    useOutletContext<AppBillingContext>();
+
+  const isPro = billing.isPro;
+
   const loaderData =
     useLoaderData<typeof loader>();
 
@@ -1193,25 +1206,40 @@ export default function PincodesPage() {
                           </p>
 
                           {search ? (
-                            <Link
-                              to="/app/pincodes"
-                              style={
-                                secondaryButton
-                              }
-                            >
-                              Clear
-                              search
-                            </Link>
-                          ) : (
-                            <Link
-                              to="/app/import"
-                              style={
-                                secondaryButton
-                              }
-                            >
-                              Import CSV
-                            </Link>
-                          )}
+  <Link
+    to="/app/pincodes"
+    style={secondaryButton}
+  >
+    Clear search
+  </Link>
+) : isPro ? (
+  <Link
+    to="/app/import"
+    style={secondaryButton}
+  >
+    Import CSV
+  </Link>
+) : (
+  <div className="locked-import-action">
+    <button
+      type="button"
+      disabled
+      aria-disabled="true"
+      title="CSV import is available on the Pro plan"
+      style={disabledProButton}
+    >
+      <span aria-hidden="true">
+        👑
+      </span>
+
+      Import CSV
+    </button>
+
+    <span className="locked-import-help">
+      Available on the Pro plan
+    </span>
+  </div>
+)}
                         </div>
                       </td>
                     </tr>
@@ -1856,6 +1884,19 @@ export default function PincodesPage() {
             line-height: 1.6;
           }
 
+          .locked-import-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+
+.locked-import-help {
+  color: #8c9196;
+  font-size: 12px;
+  font-weight: 500;
+}
+
           .visually-hidden {
             position: absolute;
             width: 1px;
@@ -1946,7 +1987,11 @@ export default function PincodesPage() {
               width: 100%;
             }
           }
+
+          
+
         `}
+
       </style>
     </s-page>
   );
@@ -2156,4 +2201,23 @@ const compactDangerButton: CSSProperties = {
   minHeight: "34px",
   padding: "7px 11px",
   fontSize: "12px",
+};
+
+
+const disabledProButton: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "7px",
+  minHeight: "40px",
+  padding: "9px 14px",
+  border: "1px solid #d4d6d8",
+  borderRadius: "9px",
+  background: "#f1f2f3",
+  color: "#8c9196",
+  fontSize: "13px",
+  fontWeight: 650,
+  cursor: "not-allowed",
+  opacity: 0.8,
+  boxSizing: "border-box",
 };
