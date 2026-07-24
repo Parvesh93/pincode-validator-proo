@@ -1141,16 +1141,23 @@ export default function Index() {
 
   const isPro = billing.isPro;
 
-  const openPricingPage = () => {
-  if (window.top) {
-    window.top.location.href =
-      pricingUrl;
+//   const openPricingPage = () => {
+//   if (window.top) {
+//     window.top.location.href =
+//       pricingUrl;
 
-    return;
-  }
+//     return;
+//   }
 
-  window.location.href =
-    pricingUrl;
+//   window.location.href =
+//     pricingUrl;
+// };
+
+const openPricingPage = () => {
+  open(
+    pricingUrl,
+    "_top",
+  );
 };
 
   const freeRemaining =
@@ -1490,7 +1497,7 @@ export default function Index() {
             </div>
 
             <s-button
-  href="/app/upgrade"
+  onClick={openPricingPage}
   variant="primary"
 >
   View Pro plan

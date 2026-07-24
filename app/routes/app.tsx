@@ -229,6 +229,9 @@ export default function App() {
         ? "/app/pincodes/export"
         : "/app/billing"
     }
+    reloadDocument={
+      billing.isPro
+    }
   >
     {billing.isPro
       ? "Export CSV"
