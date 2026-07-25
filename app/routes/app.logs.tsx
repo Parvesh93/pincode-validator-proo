@@ -6,6 +6,7 @@ import {
   useActionData,
   useLoaderData,
   useNavigation,
+  useNavigate,
   useSearchParams,
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
@@ -481,6 +482,8 @@ export default function ValidationLogsPage() {
   const navigation =
     useNavigation();
 
+    const navigate = useNavigate();
+
   const [
     searchParams,
   ] = useSearchParams();
@@ -668,7 +671,7 @@ export default function ValidationLogsPage() {
       subtitle={`Review storefront pincode checks for ${shopDomain}.`}
       backAction={{
         content: "Dashboard",
-        url: "/app",
+        onAction: () => navigate("/app"),
       }}
       primaryAction={{
   content: "Export filtered CSV",

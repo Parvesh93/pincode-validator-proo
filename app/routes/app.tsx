@@ -28,6 +28,7 @@ import {
 
 import {
   getOrCreateShopByDomain,
+  enforcePincodePlanLimit,
 } from "../lib/pincode.server";
 
 import {
@@ -77,6 +78,11 @@ export const loader = async ({
       billing,
       shop.id,
     );
+
+    await enforcePincodePlanLimit({
+  shopId: shop.id,
+  isPro: billingStatus.isPro,
+});
 
   const appHandle =
     process.env

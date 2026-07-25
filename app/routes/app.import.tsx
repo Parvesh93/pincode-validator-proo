@@ -1,7 +1,7 @@
 import "@shopify/polaris/build/esm/styles.css";
 
 import { useCallback, useMemo, useState } from "react";
-import { useFetcher } from "react-router";
+import { useFetcher, useNavigate, } from "react-router";
 import {
   AppProvider,
   Banner,
@@ -17,11 +17,6 @@ import {
   RadioButton,
   Text,
 } from "@shopify/polaris";
-
-import {
-  useNavigate,
-  // other imports
-} from "react-router";
 
 
 
