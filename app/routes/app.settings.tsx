@@ -13,11 +13,11 @@ import enTranslations from "@shopify/polaris/locales/en.json";
 
 import {
   Form,
-  Link,
   data,
   useActionData,
   useLoaderData,
   useNavigation,
+  useNavigate,
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
 } from "react-router";
@@ -941,6 +941,8 @@ export default function SettingsPage() {
   const navigation =
     useNavigation();
 
+    const navigate = useNavigate();
+
   const isSubmitting =
     navigation.state ===
     "submitting";
@@ -1291,13 +1293,13 @@ const [
       i18n={enTranslations}
     >
       <Page
-        title="Settings"
-        subtitle="Control storefront validation, popup behaviour and customer-facing messages."
-        backAction={{
-          content: "Dashboard",
-          url: "/app",
-        }}
-      >
+  title="Settings"
+  subtitle="Control storefront validation, popup behaviour and customer-facing messages."
+  backAction={{
+    content: "Dashboard",
+    onAction: () => navigate("/app"),
+  }}
+>
         <Layout>
           {actionData?.error ? (
             <Layout.Section>
