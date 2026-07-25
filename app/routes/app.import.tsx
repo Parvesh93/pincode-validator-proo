@@ -23,7 +23,7 @@ import {
   // other imports
 } from "react-router";
 
-const navigate = useNavigate();
+
 
 type InvalidRow = {
   rowNumber: number;
@@ -111,6 +111,8 @@ export default function ImportPincodesPage() {
     },
     [],
   );
+
+  const navigate = useNavigate();
 
   const handleRemoveFile = useCallback(() => {
     setSelectedFile(null);
