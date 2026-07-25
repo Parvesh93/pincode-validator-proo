@@ -18,6 +18,13 @@ import {
   Text,
 } from "@shopify/polaris";
 
+import {
+  useNavigate,
+  // other imports
+} from "react-router";
+
+const navigate = useNavigate();
+
 type InvalidRow = {
   rowNumber: number;
   row: {
@@ -176,9 +183,9 @@ export default function ImportPincodesPage() {
         title="Import pincodes"
         subtitle="Upload and manage delivery serviceability records in bulk."
         backAction={{
-          content: "Dashboard",
-          url: "/app",
-        }}
+  content: "Dashboard",
+  onAction: () => navigate("/app"),
+}}
       >
         <Layout>
           <Layout.Section>
