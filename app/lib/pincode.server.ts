@@ -1,5 +1,12 @@
 import prisma from "../db.server";
-import type { ParsedCsvRow } from "./csv.server";
+
+import type {
+  ParsedCsvRow,
+} from "./csv.server";
+
+import {
+  FREE_PINCODE_LIMIT,
+} from "./plan.constants";
 
 export type PincodeInput = {
   shopId: string;
@@ -21,7 +28,9 @@ type GetPaginatedPincodesInput = {
   pageSize?: number;
 };
 
-function normalizePincode(value: string) {
+function normalizePincode(
+  value: string,
+) {
   return value.trim();
 }
 
@@ -29,9 +38,15 @@ export async function getOrCreateShopByDomain(
   shopDomain: string,
 ) {
   return prisma.shop.upsert({
-    where: { shopDomain },
+    where: {
+      shopDomain,
+    },
+
     update: {},
-    create: { shopDomain },
+
+    create: {
+      shopDomain,
+    },
   });
 }
 
@@ -39,7 +54,9 @@ export async function getShopByDomain(
   shopDomain: string,
 ) {
   return prisma.shop.findUnique({
-    where: { shopDomain },
+    where: {
+      shopDomain,
+    },
   });
 }
 
@@ -47,39 +64,57 @@ export async function getPincodesByShop(
   shopId: string,
   search?: string,
 ) {
-  const normalizedSearch = search?.trim() || "";
+  const normalizedSearch =
+    search?.trim() || "";
 
   return prisma.pincode.findMany({
     where: {
       shopId,
+
       ...(normalizedSearch
         ? {
             OR: [
               {
                 pincode: {
-                  contains: normalizedSearch,
-                  mode: "insensitive",
+                  contains:
+                    normalizedSearch,
+                  mode:
+                    "insensitive" as const,
                 },
               },
               {
                 city: {
-                  contains: normalizedSearch,
-                  mode: "insensitive",
+                  contains:
+                    normalizedSearch,
+                  mode:
+                    "insensitive" as const,
                 },
               },
               {
                 state: {
-                  contains: normalizedSearch,
-                  mode: "insensitive",
+                  contains:
+                    normalizedSearch,
+                  mode:
+                    "insensitive" as const,
                 },
               },
             ],
           }
         : {}),
     },
-    orderBy: {
-      pincode: "asc",
-    },
+
+    /*
+     * This order determines which records form the
+     * first 100 on the Free plan.
+     */
+    orderBy: [
+      {
+        createdAt: "asc",
+      },
+      {
+        id: "asc",
+      },
+    ],
   });
 }
 
@@ -90,39 +125,53 @@ export async function getPaginatedPincodes({
   pageSize = 25,
 }: GetPaginatedPincodesInput) {
   const safePage =
-    Number.isInteger(page) && page > 0 ? page : 1;
+    Number.isInteger(page) &&
+    page > 0
+      ? page
+      : 1;
 
-  const safePageSize = Math.min(
-    100,
-    Math.max(
-      1,
-      Number.isInteger(pageSize) ? pageSize : 25,
-    ),
-  );
+  const safePageSize =
+    Math.min(
+      100,
+      Math.max(
+        1,
+        Number.isInteger(pageSize)
+          ? pageSize
+          : 25,
+      ),
+    );
 
-  const normalizedSearch = search.trim();
+  const normalizedSearch =
+    search.trim();
 
   const where = {
     shopId,
+
     ...(normalizedSearch
       ? {
           OR: [
             {
               pincode: {
-                contains: normalizedSearch,
-                mode: "insensitive" as const,
+                contains:
+                  normalizedSearch,
+                mode:
+                  "insensitive" as const,
               },
             },
             {
               city: {
-                contains: normalizedSearch,
-                mode: "insensitive" as const,
+                contains:
+                  normalizedSearch,
+                mode:
+                  "insensitive" as const,
               },
             },
             {
               state: {
-                contains: normalizedSearch,
-                mode: "insensitive" as const,
+                contains:
+                  normalizedSearch,
+                mode:
+                  "insensitive" as const,
               },
             },
           ],
@@ -130,32 +179,54 @@ export async function getPaginatedPincodes({
       : {}),
   };
 
-  const totalCount = await prisma.pincode.count({
-    where,
-  });
+  const totalCount =
+    await prisma.pincode.count({
+      where,
+    });
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(totalCount / safePageSize),
-  );
+  const totalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        totalCount /
+          safePageSize,
+      ),
+    );
 
-  const currentPage = Math.min(safePage, totalPages);
+  const currentPage =
+    Math.min(
+      safePage,
+      totalPages,
+    );
 
-  const pincodes = await prisma.pincode.findMany({
-    where,
-    orderBy: {
-      pincode: "asc",
-    },
-    skip: (currentPage - 1) * safePageSize,
-    take: safePageSize,
-  });
+  const pincodes =
+    await prisma.pincode.findMany({
+      where,
+
+      orderBy: [
+        {
+          createdAt: "asc",
+        },
+        {
+          id: "asc",
+        },
+      ],
+
+      skip:
+        (currentPage - 1) *
+        safePageSize,
+
+      take:
+        safePageSize,
+    });
 
   return {
     pincodes,
     totalCount,
     totalPages,
     currentPage,
-    pageSize: safePageSize,
+    pageSize:
+      safePageSize,
   };
 }
 
@@ -171,28 +242,90 @@ export async function getPincodeById(
   });
 }
 
+export async function getPincodeByValue(
+  shopId: string,
+  pincode: string,
+) {
+  return prisma.pincode.findUnique({
+    where: {
+      shopId_pincode: {
+        shopId,
+        pincode:
+          normalizePincode(
+            pincode,
+          ),
+      },
+    },
+  });
+}
+
+export async function countPincodesByShop(
+  shopId: string,
+) {
+  return prisma.pincode.count({
+    where: {
+      shopId,
+    },
+  });
+}
+
+export async function countActivePincodesByShop(
+  shopId: string,
+) {
+  return prisma.pincode.count({
+    where: {
+      shopId,
+      isActive: true,
+    },
+  });
+}
+
 export async function createPincode(
   input: PincodeInput,
 ) {
-  const pincode = normalizePincode(
-    input.pincode,
-  );
+  const pincode =
+    normalizePincode(
+      input.pincode,
+    );
 
   return prisma.pincode.create({
     data: {
-      shopId: input.shopId,
+      shopId:
+        input.shopId,
+
       pincode,
-      city: input.city ?? null,
-      state: input.state ?? null,
-      country: input.country ?? null,
+
+      city:
+        input.city ?? null,
+
+      state:
+        input.state ?? null,
+
+      country:
+        input.country ?? null,
+
       codAvailable:
-        input.codAvailable ?? false,
+        input.codAvailable ??
+        false,
+
       prepaidAvailable:
-        input.prepaidAvailable ?? true,
+        input.prepaidAvailable ??
+        true,
+
       estDeliveryDays:
-        input.estDeliveryDays ?? null,
-      isActive: input.isActive ?? true,
-      source: input.source ?? "manual",
+        input.estDeliveryDays ??
+        null,
+
+      isActive:
+        input.isActive ??
+        true,
+
+      disabledByPlan:
+        false,
+
+      source:
+        input.source ??
+        "manual",
     },
   });
 }
@@ -200,33 +333,74 @@ export async function createPincode(
 export async function updatePincode(
   id: string,
   shopId: string,
-  input: Omit<PincodeInput, "shopId">,
+  input: Omit<
+    PincodeInput,
+    "shopId"
+  >,
 ) {
-  const existing = await getPincodeById(
-    id,
-    shopId,
-  );
+  const existing =
+    await getPincodeById(
+      id,
+      shopId,
+    );
 
   if (!existing) {
-    throw new Error("Pincode not found");
+    throw new Error(
+      "Pincode not found",
+    );
   }
 
+  const requestedIsActive =
+    input.isActive ?? true;
+
+  /*
+   * Preserve disabledByPlan when a plan-disabled
+   * record is edited but remains inactive.
+   *
+   * Clear it when the merchant explicitly activates
+   * the record or when it is a manually inactive record.
+   */
+  const disabledByPlan =
+    existing.disabledByPlan &&
+    !requestedIsActive;
+
   return prisma.pincode.update({
-    where: { id },
+    where: {
+      id,
+    },
+
     data: {
-      pincode: normalizePincode(
-        input.pincode,
-      ),
-      city: input.city ?? null,
-      state: input.state ?? null,
-      country: input.country ?? null,
+      pincode:
+        normalizePincode(
+          input.pincode,
+        ),
+
+      city:
+        input.city ?? null,
+
+      state:
+        input.state ?? null,
+
+      country:
+        input.country ?? null,
+
       codAvailable:
-        input.codAvailable ?? false,
+        input.codAvailable ??
+        false,
+
       prepaidAvailable:
-        input.prepaidAvailable ?? true,
+        input.prepaidAvailable ??
+        true,
+
       estDeliveryDays:
-        input.estDeliveryDays ?? null,
-      isActive: input.isActive ?? true,
+        input.estDeliveryDays ??
+        null,
+
+      isActive:
+        requestedIsActive,
+
+      disabledByPlan,
+
       source:
         input.source ??
         existing.source ??
@@ -238,44 +412,108 @@ export async function updatePincode(
 export async function upsertSinglePincode(
   input: PincodeInput,
 ) {
-  const pincode = normalizePincode(
-    input.pincode,
-  );
+  const pincode =
+    normalizePincode(
+      input.pincode,
+    );
 
-  return prisma.pincode.upsert({
-    where: {
-      shopId_pincode: {
-        shopId: input.shopId,
-        pincode,
+  const existing =
+    await prisma.pincode.findUnique({
+      where: {
+        shopId_pincode: {
+          shopId:
+            input.shopId,
+          pincode,
+        },
       },
-    },
-    update: {
-      city: input.city ?? null,
-      state: input.state ?? null,
-      country: input.country ?? null,
-      codAvailable:
-        input.codAvailable ?? false,
-      prepaidAvailable:
-        input.prepaidAvailable ?? true,
-      estDeliveryDays:
-        input.estDeliveryDays ?? null,
-      isActive: input.isActive ?? true,
-      source: input.source ?? "manual",
-    },
-    create: {
-      shopId: input.shopId,
+    });
+
+  const requestedIsActive =
+    input.isActive ?? true;
+
+  if (existing) {
+    const disabledByPlan =
+      existing.disabledByPlan &&
+      !requestedIsActive;
+
+    return prisma.pincode.update({
+      where: {
+        id:
+          existing.id,
+      },
+
+      data: {
+        city:
+          input.city ?? null,
+
+        state:
+          input.state ?? null,
+
+        country:
+          input.country ?? null,
+
+        codAvailable:
+          input.codAvailable ??
+          false,
+
+        prepaidAvailable:
+          input.prepaidAvailable ??
+          true,
+
+        estDeliveryDays:
+          input.estDeliveryDays ??
+          null,
+
+        isActive:
+          requestedIsActive,
+
+        disabledByPlan,
+
+        source:
+          input.source ??
+          existing.source ??
+          "manual",
+      },
+    });
+  }
+
+  return prisma.pincode.create({
+    data: {
+      shopId:
+        input.shopId,
+
       pincode,
-      city: input.city ?? null,
-      state: input.state ?? null,
-      country: input.country ?? null,
+
+      city:
+        input.city ?? null,
+
+      state:
+        input.state ?? null,
+
+      country:
+        input.country ?? null,
+
       codAvailable:
-        input.codAvailable ?? false,
+        input.codAvailable ??
+        false,
+
       prepaidAvailable:
-        input.prepaidAvailable ?? true,
+        input.prepaidAvailable ??
+        true,
+
       estDeliveryDays:
-        input.estDeliveryDays ?? null,
-      isActive: input.isActive ?? true,
-      source: input.source ?? "manual",
+        input.estDeliveryDays ??
+        null,
+
+      isActive:
+        requestedIsActive,
+
+      disabledByPlan:
+        false,
+
+      source:
+        input.source ??
+        "manual",
     },
   });
 }
@@ -284,17 +522,22 @@ export async function deletePincode(
   id: string,
   shopId: string,
 ) {
-  const existing = await getPincodeById(
-    id,
-    shopId,
-  );
+  const existing =
+    await getPincodeById(
+      id,
+      shopId,
+    );
 
   if (!existing) {
-    throw new Error("Pincode not found");
+    throw new Error(
+      "Pincode not found",
+    );
   }
 
   return prisma.pincode.delete({
-    where: { id },
+    where: {
+      id,
+    },
   });
 }
 
@@ -303,12 +546,15 @@ export async function bulkDeletePincodes(
   shopId: string,
 ) {
   if (!ids.length) {
-    return { count: 0 };
+    return {
+      count: 0,
+    };
   }
 
   return prisma.pincode.deleteMany({
     where: {
       shopId,
+
       id: {
         in: ids,
       },
@@ -322,18 +568,28 @@ export async function bulkUpdatePincodeStatus(
   isActive: boolean,
 ) {
   if (!ids.length) {
-    return { count: 0 };
+    return {
+      count: 0,
+    };
   }
 
   return prisma.pincode.updateMany({
     where: {
       shopId,
+
       id: {
         in: ids,
       },
     },
+
+    /*
+     * This is an explicit merchant action, so it is no
+     * longer considered an automatic plan restriction.
+     */
     data: {
       isActive,
+      disabledByPlan:
+        false,
     },
   });
 }
@@ -354,47 +610,84 @@ export async function bulkUpsertPincodes(
         where: {
           shopId_pincode: {
             shopId,
-            pincode: row.pincode,
+            pincode:
+              row.pincode,
           },
         },
+
         update: {
-          city: row.city ?? null,
-          state: row.state ?? null,
-          country: row.country ?? null,
+          city:
+            row.city ?? null,
+
+          state:
+            row.state ?? null,
+
+          country:
+            row.country ?? null,
+
           codAvailable:
             row.codAvailable,
+
           prepaidAvailable:
             row.prepaidAvailable,
+
           estDeliveryDays:
-            row.estDeliveryDays ?? null,
-          isActive: row.isActive,
-          source: row.source,
+            row.estDeliveryDays ??
+            null,
+
+          isActive:
+            row.isActive,
+
+          disabledByPlan:
+            false,
+
+          source:
+            row.source,
         },
+
         create: {
           shopId,
-          pincode: row.pincode,
-          city: row.city ?? null,
-          state: row.state ?? null,
-          country: row.country ?? null,
+
+          pincode:
+            row.pincode,
+
+          city:
+            row.city ?? null,
+
+          state:
+            row.state ?? null,
+
+          country:
+            row.country ?? null,
+
           codAvailable:
             row.codAvailable,
+
           prepaidAvailable:
             row.prepaidAvailable,
+
           estDeliveryDays:
-            row.estDeliveryDays ?? null,
-          isActive: row.isActive,
-          source: row.source,
+            row.estDeliveryDays ??
+            null,
+
+          isActive:
+            row.isActive,
+
+          disabledByPlan:
+            false,
+
+          source:
+            row.source,
         },
       }),
     ),
   );
 
   return {
-    insertedOrUpdated: rows.length,
+    insertedOrUpdated:
+      rows.length,
   };
 }
-
-export const FREE_PINCODE_LIMIT = 100;
 
 export async function enforcePincodePlanLimit({
   shopId,
@@ -404,8 +697,8 @@ export async function enforcePincodePlanLimit({
   isPro: boolean;
 }) {
   /*
-   * When the merchant upgrades to Pro, reactivate only
-   * the records previously disabled because of the plan.
+   * Restore only records that were automatically disabled
+   * because of the Free-plan limit.
    *
    * Manually inactive records remain inactive.
    */
@@ -416,27 +709,38 @@ export async function enforcePincodePlanLimit({
           shopId,
           disabledByPlan: true,
         },
+
         data: {
           isActive: true,
-          disabledByPlan: false,
+          disabledByPlan:
+            false,
         },
       });
 
     return {
-      plan: "pro" as const,
-      restrictedCount: 0,
-      restoredCount: restored.count,
+      plan:
+        "pro" as const,
+
+      restrictedCount:
+        0,
+
+      newlyRestrictedCount:
+        0,
+
+      restoredCount:
+        restored.count,
     };
   }
 
   /*
-   * Determine the first 100 stored records.
+   * The oldest 100 records are allowed on Free.
    */
   const allowedPincodes =
     await prisma.pincode.findMany({
       where: {
         shopId,
       },
+
       orderBy: [
         {
           createdAt: "asc",
@@ -445,7 +749,10 @@ export async function enforcePincodePlanLimit({
           id: "asc",
         },
       ],
-      take: FREE_PINCODE_LIMIT,
+
+      take:
+        FREE_PINCODE_LIMIT,
+
       select: {
         id: true,
       },
@@ -459,45 +766,60 @@ export async function enforcePincodePlanLimit({
   return prisma.$transaction(
     async (transaction) => {
       /*
-       * Records previously restricted by the plan may move
-       * into the first 100 when older records are deleted.
+       * If older records were deleted, a previously
+       * restricted record may now enter the first 100.
        */
-      if (allowedIds.length > 0) {
+      if (
+        allowedIds.length > 0
+      ) {
         await transaction.pincode.updateMany({
           where: {
             shopId,
+
             id: {
-              in: allowedIds,
+              in:
+                allowedIds,
             },
-            disabledByPlan: true,
+
+            disabledByPlan:
+              true,
           },
+
           data: {
             isActive: true,
-            disabledByPlan: false,
+            disabledByPlan:
+              false,
           },
         });
       }
 
       /*
-       * Disable only active records above the first 100.
-       * Existing manually inactive records are untouched.
+       * Disable active records beyond the first 100.
+       *
+       * Manually inactive records remain manually inactive
+       * and are not marked disabledByPlan.
        */
-      const restricted =
+      const newlyRestricted =
         await transaction.pincode.updateMany({
           where: {
             shopId,
             isActive: true,
-            ...(allowedIds.length > 0
+
+            ...(allowedIds.length >
+            0
               ? {
                   id: {
-                    notIn: allowedIds,
+                    notIn:
+                      allowedIds,
                   },
                 }
               : {}),
           },
+
           data: {
             isActive: false,
-            disabledByPlan: true,
+            disabledByPlan:
+              true,
           },
         });
 
@@ -505,16 +827,22 @@ export async function enforcePincodePlanLimit({
         await transaction.pincode.count({
           where: {
             shopId,
-            disabledByPlan: true,
+            disabledByPlan:
+              true,
           },
         });
 
       return {
-        plan: "free" as const,
+        plan:
+          "free" as const,
+
         restrictedCount,
+
         newlyRestrictedCount:
-          restricted.count,
-        restoredCount: 0,
+          newlyRestricted.count,
+
+        restoredCount:
+          0,
       };
     },
   );

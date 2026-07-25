@@ -1,138 +1,195 @@
+import type {
+  HeadersFunction,
+  LoaderFunctionArgs,
+} from "react-router";
 
+import {
+  useLoaderData,
+  useOutletContext,
+} from "react-router";
 
-import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
+import {
+  boundary,
+} from "@shopify/shopify-app-react-router/server";
 
-import { useLoaderData, useOutletContext } from "react-router";
-
-import { boundary } from "@shopify/shopify-app-react-router/server";
-
-import { authenticate } from "../shopify.server";
+import {
+  authenticate,
+} from "../shopify.server";
 
 import {
   enforcePincodePlanLimit,
-  FREE_PINCODE_LIMIT,
   getOrCreateShopByDomain,
   getPincodesByShop,
 } from "../lib/pincode.server";
 
-import { getSettingsByShopId } from "../lib/settings.server";
-
-import type { AppBillingContext } from "../types/billing";
+import {
+  getSettingsByShopId,
+} from "../lib/settings.server";
 
 import {
   getBillingStatus,
 } from "../lib/billing.server";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+import type {
+  AppBillingContext,
+} from "../types/billing";
+
+/*
+ * Keep this constant inside the route because it is also used
+ * by the browser-rendered component.
+ *
+ * Do not import this value from a *.server.ts file.
+ */
+const FREE_PINCODE_LIMIT = 100;
+
+export const loader = async ({
+  request,
+}: LoaderFunctionArgs) => {
   const {
-  billing,
-  session,
-} =
-  await authenticate.admin(request);
-
-  const shop = await getOrCreateShopByDomain(session.shop);
-
-  const billingStatus =
-  await getBillingStatus(
     billing,
-    shop.id,
+    session,
+  } = await authenticate.admin(
+    request,
   );
 
-const isPro =
-  billingStatus.isPro;
+  const shop =
+    await getOrCreateShopByDomain(
+      session.shop,
+    );
 
-  const pincodes = await getPincodesByShop(shop.id);
+  const billingStatus =
+    await getBillingStatus(
+      billing,
+      shop.id,
+    );
 
-  const settings = await getSettingsByShopId(shop.id);
+  const isPro =
+    billingStatus.isPro;
+
+  /*
+   * Apply plan restrictions before loading dashboard data.
+   *
+   * Free:
+   * - First 100 records remain available.
+   * - Additional records are marked inactive by plan.
+   *
+   * Pro:
+   * - Records previously disabled by plan are restored.
+   */
+  await enforcePincodePlanLimit({
+    shopId: shop.id,
+    isPro,
+  });
+
+  const [
+    pincodes,
+    settings,
+  ] = await Promise.all([
+    getPincodesByShop(
+      shop.id,
+    ),
+
+    getSettingsByShopId(
+      shop.id,
+    ),
+  ]);
 
   const storedPincodes =
-  pincodes.length;
+    pincodes.length;
 
-const totalPincodes =
-  isPro
-    ? storedPincodes
-    : Math.min(
-        storedPincodes,
-        FREE_PINCODE_LIMIT,
-      );
+  const totalPincodes =
+    isPro
+      ? storedPincodes
+      : Math.min(
+          storedPincodes,
+          FREE_PINCODE_LIMIT,
+        );
 
-const planRestrictedPincodes =
-  pincodes.filter(
-    (item) =>
-      item.disabledByPlan,
-  ).length;
+  const planRestrictedPincodes =
+    pincodes.filter(
+      (item) =>
+        item.disabledByPlan,
+    ).length;
 
-const activePincodes =
-  pincodes.filter(
-    (item) => item.isActive,
-  ).length;
+  const activePincodes =
+    pincodes.filter(
+      (item) =>
+        item.isActive,
+    ).length;
 
-const codEnabledPincodes =
-  pincodes.filter(
-    (item) =>
-      item.isActive &&
-      item.codAvailable,
-  ).length;
+  const codEnabledPincodes =
+    pincodes.filter(
+      (item) =>
+        item.isActive &&
+        item.codAvailable,
+    ).length;
 
-const prepaidEnabledPincodes =
-  pincodes.filter(
-    (item) =>
-      item.isActive &&
-      item.prepaidAvailable,
-  ).length;
+  const prepaidEnabledPincodes =
+    pincodes.filter(
+      (item) =>
+        item.isActive &&
+        item.prepaidAvailable,
+    ).length;
 
-const inactivePincodes =
-  isPro
-    ? storedPincodes -
-      activePincodes
-    : Math.max(
-        totalPincodes -
-          activePincodes,
-        0,
-      );
+  const inactivePincodes =
+    isPro
+      ? Math.max(
+          storedPincodes -
+            activePincodes,
+          0,
+        )
+      : Math.max(
+          totalPincodes -
+            activePincodes,
+          0,
+        );
 
-const activePercentage =
-  totalPincodes > 0
-    ? Math.min(
-        Math.round(
-          (activePincodes /
-            totalPincodes) *
-            100,
-        ),
-        100,
-      )
-    : 0;
+  const activePercentage =
+    totalPincodes > 0
+      ? Math.min(
+          Math.round(
+            (activePincodes /
+              totalPincodes) *
+              100,
+          ),
+          100,
+        )
+      : 0;
 
   return {
-  shopDomain: session.shop,
-  isPro,
+    shopDomain:
+      session.shop,
 
-  storedPincodes,
-  totalPincodes,
-  planRestrictedPincodes,
+    isPro,
 
-  activePincodes,
-  inactivePincodes,
-  codEnabledPincodes,
-  prepaidEnabledPincodes,
-  activePercentage,
+    storedPincodes,
+    totalPincodes,
+    planRestrictedPincodes,
 
-  requireValidation:
-    settings?.requireValidation ??
-    true,
+    activePincodes,
+    inactivePincodes,
+    codEnabledPincodes,
+    prepaidEnabledPincodes,
+    activePercentage,
 
-  restrictAddToCart:
-    isPro
-      ? settings?.restrictAddToCart ??
-        false
-      : false,
+    requireValidation:
+      settings?.requireValidation ??
+      true,
 
-  restrictBuyNow:
-    isPro
-      ? settings?.restrictBuyNow ??
-        false
-      : false,
-};
+    restrictAddToCart:
+      isPro
+        ? settings
+            ?.restrictAddToCart ??
+          false
+        : false,
+
+    restrictBuyNow:
+      isPro
+        ? settings
+            ?.restrictBuyNow ??
+          false
+        : false,
+  };
 };
 
 type StatCardProps = {
@@ -142,7 +199,12 @@ type StatCardProps = {
   accent: string;
 };
 
-function StatCard({ label, value, description, accent }: StatCardProps) {
+function StatCard({
+  label,
+  value,
+  description,
+  accent,
+}: StatCardProps) {
   return (
     <div
       style={{
@@ -150,10 +212,12 @@ function StatCard({ label, value, description, accent }: StatCardProps) {
         overflow: "hidden",
         minHeight: "150px",
         padding: "22px",
-        border: "1px solid #e3e5e7",
+        border:
+          "1px solid #e3e5e7",
         borderRadius: "16px",
         background: "#ffffff",
-        boxShadow: "0 4px 18px rgba(20, 25, 30, 0.05)",
+        boxShadow:
+          "0 4px 18px rgba(20, 25, 30, 0.05)",
       }}
     >
       <div
@@ -173,8 +237,10 @@ function StatCard({ label, value, description, accent }: StatCardProps) {
           color: "#616161",
           fontSize: "13px",
           fontWeight: 600,
-          letterSpacing: "0.02em",
-          textTransform: "uppercase",
+          letterSpacing:
+            "0.02em",
+          textTransform:
+            "uppercase",
         }}
       >
         {label}
@@ -182,7 +248,8 @@ function StatCard({ label, value, description, accent }: StatCardProps) {
 
       <p
         style={{
-          margin: "14px 0 6px",
+          margin:
+            "14px 0 6px",
           color: "#202223",
           fontSize: "34px",
           fontWeight: 700,
@@ -221,26 +288,34 @@ function StatusRow({
   proRequired = false,
   isPro = false,
 }: StatusRowProps) {
-  const locked = proRequired && !isPro;
+  const locked =
+    proRequired && !isPro;
 
-  const effectiveEnabled = locked ? false : enabled;
+  const effectiveEnabled =
+    locked
+      ? false
+      : enabled;
 
   return (
     <div
       style={{
         display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "space-between",
+        alignItems:
+          "flex-start",
+        justifyContent:
+          "space-between",
         gap: "20px",
         padding: "18px 0",
-        borderBottom: "1px solid #ebebeb",
+        borderBottom:
+          "1px solid #ebebeb",
       }}
     >
       <div>
         <div
           style={{
             display: "flex",
-            alignItems: "center",
+            alignItems:
+              "center",
             flexWrap: "wrap",
             gap: "8px",
           }}
@@ -259,14 +334,22 @@ function StatusRow({
           {proRequired && (
             <span
               style={{
-                display: "inline-flex",
-                alignItems: "center",
-                padding: "3px 8px",
-                borderRadius: "999px",
-                background: "#fff3cd",
-                color: "#7a4f01",
-                fontSize: "11px",
-                fontWeight: 700,
+                display:
+                  "inline-flex",
+                alignItems:
+                  "center",
+                padding:
+                  "3px 8px",
+                borderRadius:
+                  "999px",
+                background:
+                  "#fff3cd",
+                color:
+                  "#7a4f01",
+                fontSize:
+                  "11px",
+                fontWeight:
+                  700,
               }}
             >
               Pro
@@ -276,7 +359,8 @@ function StatusRow({
 
         <p
           style={{
-            margin: "5px 0 0",
+            margin:
+              "5px 0 0",
             color: "#6d7175",
             fontSize: "13px",
             lineHeight: 1.5,
@@ -291,11 +375,15 @@ function StatusRow({
       <span
         style={{
           flexShrink: 0,
-          display: "inline-flex",
-          alignItems: "center",
+          display:
+            "inline-flex",
+          alignItems:
+            "center",
           gap: "7px",
-          padding: "6px 10px",
-          borderRadius: "999px",
+          padding:
+            "6px 10px",
+          borderRadius:
+            "999px",
 
           background: locked
             ? "#fff3cd"
@@ -303,7 +391,11 @@ function StatusRow({
               ? "#e8f5ee"
               : "#f1f2f3",
 
-          color: locked ? "#7a4f01" : effectiveEnabled ? "#087a44" : "#616161",
+          color: locked
+            ? "#7a4f01"
+            : effectiveEnabled
+              ? "#087a44"
+              : "#616161",
 
           fontSize: "12px",
           fontWeight: 700,
@@ -313,7 +405,8 @@ function StatusRow({
           style={{
             width: "7px",
             height: "7px",
-            borderRadius: "50%",
+            borderRadius:
+              "50%",
 
             background: locked
               ? "#b98900"
@@ -323,7 +416,11 @@ function StatusRow({
           }}
         />
 
-        {locked ? "Pro required" : effectiveEnabled ? "Enabled" : "Disabled"}
+        {locked
+          ? "Pro required"
+          : effectiveEnabled
+            ? "Enabled"
+            : "Disabled"}
       </span>
     </div>
   );
@@ -348,28 +445,35 @@ function ActionCard({
   isPro = false,
   onUpgrade,
 }: ActionCardProps) {
-  const locked = proRequired && !isPro;
+  const locked =
+    proRequired && !isPro;
 
   return (
     <div
       style={{
         display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
+        flexDirection:
+          "column",
+        justifyContent:
+          "space-between",
         minHeight: "190px",
         padding: "22px",
-        border: "1px solid #e3e5e7",
+        border:
+          "1px solid #e3e5e7",
         borderRadius: "16px",
         background: "#ffffff",
-        boxShadow: "0 4px 18px rgba(20, 25, 30, 0.04)",
+        boxShadow:
+          "0 4px 18px rgba(20, 25, 30, 0.04)",
       }}
     >
       <div>
         <div
           style={{
             display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
+            alignItems:
+              "center",
+            justifyContent:
+              "space-between",
             gap: "10px",
           }}
         >
@@ -388,13 +492,20 @@ function ActionCard({
             <span
               style={{
                 flexShrink: 0,
-                display: "inline-flex",
-                padding: "4px 9px",
-                borderRadius: "999px",
-                background: "#fff3cd",
-                color: "#7a4f01",
-                fontSize: "11px",
-                fontWeight: 700,
+                display:
+                  "inline-flex",
+                padding:
+                  "4px 9px",
+                borderRadius:
+                  "999px",
+                background:
+                  "#fff3cd",
+                color:
+                  "#7a4f01",
+                fontSize:
+                  "11px",
+                fontWeight:
+                  700,
               }}
             >
               Pro
@@ -404,7 +515,8 @@ function ActionCard({
 
         <p
           style={{
-            margin: "9px 0 20px",
+            margin:
+              "9px 0 20px",
             color: "#6d7175",
             fontSize: "14px",
             lineHeight: 1.6,
@@ -415,44 +527,58 @@ function ActionCard({
       </div>
 
       {locked ? (
-        <s-button onClick={onUpgrade} variant="primary">
-          Upgrade to Pro        </s-button>
+        <s-button
+          onClick={onUpgrade}
+          variant="primary"
+        >
+          Upgrade to Pro
+        </s-button>
       ) : (
-        <s-link href={href}>{buttonText}</s-link>
+        <s-link href={href}>
+          {buttonText}
+        </s-link>
       )}
     </div>
   );
 }
 
 export default function Index() {
-  const data = useLoaderData<typeof loader>();
+  const data =
+    useLoaderData<typeof loader>();
 
-  const { billing, pricingUrl } = useOutletContext<AppBillingContext>();
+  const {
+    billing,
+    pricingUrl,
+  } =
+    useOutletContext<AppBillingContext>();
 
-  const isPro = billing.isPro;
+  const isPro =
+    billing.isPro;
 
-  //   const openPricingPage = () => {
-  //   if (window.top) {
-  //     window.top.location.href =
-  //       pricingUrl;
+  const openPricingPage =
+    () => {
+      window.open(
+        pricingUrl,
+        "_top",
+      );
+    };
 
-  //     return;
-  //   }
+  const freeRemaining =
+    Math.max(
+      FREE_PINCODE_LIMIT -
+        data.totalPincodes,
+      0,
+    );
 
-  //   window.location.href =
-  //     pricingUrl;
-  // };
-
-  const openPricingPage = () => {
-  window.open(pricingUrl, "_top");
-};
-
-  const freeRemaining = Math.max(FREE_PINCODE_LIMIT - data.totalPincodes, 0);
-
-  const freeUsagePercentage = Math.min(
-    Math.round((data.totalPincodes / FREE_PINCODE_LIMIT) * 100),
-    100,
-  );
+  const freeUsagePercentage =
+    Math.min(
+      Math.round(
+        (data.totalPincodes /
+          FREE_PINCODE_LIMIT) *
+          100,
+      ),
+      100,
+    );
 
   return (
     <s-page heading="Pincode Validator">
@@ -460,50 +586,67 @@ export default function Index() {
         style={{
           display: "grid",
           gap: "24px",
-          paddingBottom: "32px",
+          paddingBottom:
+            "32px",
         }}
       >
         <section
           style={{
-            position: "relative",
+            position:
+              "relative",
             overflow: "hidden",
             padding: "30px",
-            borderRadius: "20px",
+            borderRadius:
+              "20px",
 
             background:
               "linear-gradient(135deg, #1f2937 0%, #111827 58%, #0f766e 140%)",
 
             color: "#ffffff",
 
-            boxShadow: "0 12px 30px rgba(17, 24, 39, 0.16)",
+            boxShadow:
+              "0 12px 30px rgba(17, 24, 39, 0.16)",
           }}
         >
           <div
             style={{
-              position: "relative",
+              position:
+                "relative",
               zIndex: 2,
-              maxWidth: "760px",
+              maxWidth:
+                "760px",
             }}
           >
             <div
               style={{
                 display: "flex",
-                alignItems: "center",
-                flexWrap: "wrap",
+                alignItems:
+                  "center",
+                flexWrap:
+                  "wrap",
                 gap: "8px",
               }}
             >
               <span
                 style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  padding: "6px 10px",
-                  border: "1px solid rgba(255,255,255,0.18)",
-                  borderRadius: "999px",
-                  background: "rgba(255,255,255,0.08)",
-                  fontSize: "12px",
-                  fontWeight: 700,
-                  letterSpacing: "0.03em",
+                  display:
+                    "inline-flex",
+                  alignItems:
+                    "center",
+                  padding:
+                    "6px 10px",
+                  border:
+                    "1px solid rgba(255,255,255,0.18)",
+                  borderRadius:
+                    "999px",
+                  background:
+                    "rgba(255,255,255,0.08)",
+                  fontSize:
+                    "12px",
+                  fontWeight:
+                    700,
+                  letterSpacing:
+                    "0.03em",
                 }}
               >
                 Store connected
@@ -511,48 +654,71 @@ export default function Index() {
 
               <span
                 style={{
-                  display: "inline-flex",
-                  alignItems: "center",
+                  display:
+                    "inline-flex",
+                  alignItems:
+                    "center",
                   gap: "6px",
-                  padding: "6px 10px",
-                  borderRadius: "999px",
+                  padding:
+                    "6px 10px",
+                  borderRadius:
+                    "999px",
 
-                  background: isPro
-                    ? "rgba(34, 197, 94, 0.18)"
-                    : "rgba(255,255,255,0.10)",
+                  background:
+                    isPro
+                      ? "rgba(34, 197, 94, 0.18)"
+                      : "rgba(255,255,255,0.10)",
 
-                  border: isPro
-                    ? "1px solid rgba(74, 222, 128, 0.30)"
-                    : "1px solid rgba(255,255,255,0.18)",
+                  border:
+                    isPro
+                      ? "1px solid rgba(74, 222, 128, 0.30)"
+                      : "1px solid rgba(255,255,255,0.18)",
 
-                  fontSize: "12px",
-                  fontWeight: 700,
+                  fontSize:
+                    "12px",
+                  fontWeight:
+                    700,
                 }}
               >
                 <span
                   style={{
                     width: "7px",
                     height: "7px",
-                    borderRadius: "50%",
-                    background: isPro ? "#4ade80" : "#d1d5db",
+                    borderRadius:
+                      "50%",
+                    background:
+                      isPro
+                        ? "#4ade80"
+                        : "#d1d5db",
                   }}
                 />
 
-                {isPro ? "Pro plan" : "Free plan"}
+                {isPro
+                  ? "Pro plan"
+                  : "Free plan"}
               </span>
 
               {billing.isTest && (
                 <span
                   style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    padding: "6px 10px",
-                    borderRadius: "999px",
-                    background: "rgba(245, 158, 11, 0.18)",
-                    border: "1px solid rgba(251, 191, 36, 0.30)",
-                    color: "#fde68a",
-                    fontSize: "12px",
-                    fontWeight: 700,
+                    display:
+                      "inline-flex",
+                    alignItems:
+                      "center",
+                    padding:
+                      "6px 10px",
+                    borderRadius:
+                      "999px",
+                    background:
+                      "rgba(245, 158, 11, 0.18)",
+                    border:
+                      "1px solid rgba(251, 191, 36, 0.30)",
+                    color:
+                      "#fde68a",
+                    fontSize:
+                      "12px",
+                    fontWeight:
+                      700,
                   }}
                 >
                   Test subscription
@@ -562,7 +728,8 @@ export default function Index() {
 
             <h1
               style={{
-                margin: "16px 0 10px",
+                margin:
+                  "16px 0 10px",
                 fontSize: "30px",
                 fontWeight: 750,
                 lineHeight: 1.2,
@@ -574,17 +741,24 @@ export default function Index() {
             <p
               style={{
                 margin: 0,
-                maxWidth: "620px",
-                color: "rgba(255,255,255,0.78)",
+                maxWidth:
+                  "620px",
+                color:
+                  "rgba(255,255,255,0.78)",
                 fontSize: "15px",
                 lineHeight: 1.7,
               }}
             >
-              Control serviceable pincodes, COD availability, prepaid
-              availability and storefront validation for{" "}
+              Control serviceable
+              pincodes, COD
+              availability, prepaid
+              availability and
+              storefront validation
+              for{" "}
               <strong
                 style={{
-                  color: "#ffffff",
+                  color:
+                    "#ffffff",
                 }}
               >
                 {data.shopDomain}
@@ -595,19 +769,30 @@ export default function Index() {
             <div
               style={{
                 display: "flex",
-                flexWrap: "wrap",
+                flexWrap:
+                  "wrap",
                 gap: "12px",
-                marginTop: "24px",
+                marginTop:
+                  "24px",
               }}
             >
-              <s-button href="/app/pincodes" variant="primary">
+              <s-button
+                href="/app/pincodes"
+                variant="primary"
+              >
                 Manage pincodes
               </s-button>
 
               {isPro ? (
-                <s-button href="/app/import">Import CSV</s-button>
+                <s-button href="/app/import">
+                  Import CSV
+                </s-button>
               ) : (
-                <s-button onClick={openPricingPage}>
+                <s-button
+                  onClick={
+                    openPricingPage
+                  }
+                >
                   Upgrade to Pro
                 </s-button>
               )}
@@ -616,25 +801,31 @@ export default function Index() {
 
           <div
             style={{
-              position: "absolute",
+              position:
+                "absolute",
               top: "-80px",
               right: "-60px",
               width: "260px",
               height: "260px",
-              borderRadius: "50%",
-              background: "rgba(255,255,255,0.06)",
+              borderRadius:
+                "50%",
+              background:
+                "rgba(255,255,255,0.06)",
             }}
           />
 
           <div
             style={{
-              position: "absolute",
+              position:
+                "absolute",
               right: "100px",
               bottom: "-100px",
               width: "220px",
               height: "220px",
-              borderRadius: "50%",
-              background: "rgba(13, 148, 136, 0.18)",
+              borderRadius:
+                "50%",
+              background:
+                "rgba(13, 148, 136, 0.18)",
             }}
           />
         </section>
@@ -643,13 +834,18 @@ export default function Index() {
           <section
             style={{
               display: "grid",
-              gridTemplateColumns: "minmax(0, 1fr) auto",
-              alignItems: "center",
+              gridTemplateColumns:
+                "minmax(0, 1fr) auto",
+              alignItems:
+                "center",
               gap: "20px",
               padding: "20px",
-              border: "1px solid #c9d8f3",
-              borderRadius: "16px",
-              background: "#f4f7ff",
+              border:
+                "1px solid #c9d8f3",
+              borderRadius:
+                "16px",
+              background:
+                "#f4f7ff",
             }}
             className="pincode-plan-banner"
           >
@@ -657,17 +853,22 @@ export default function Index() {
               <div
                 style={{
                   display: "flex",
-                  alignItems: "center",
-                  flexWrap: "wrap",
+                  alignItems:
+                    "center",
+                  flexWrap:
+                    "wrap",
                   gap: "9px",
                 }}
               >
                 <h2
                   style={{
                     margin: 0,
-                    color: "#202223",
-                    fontSize: "17px",
-                    fontWeight: 700,
+                    color:
+                      "#202223",
+                    fontSize:
+                      "17px",
+                    fontWeight:
+                      700,
                   }}
                 >
                   Free plan usage
@@ -675,25 +876,40 @@ export default function Index() {
 
                 <span
                   style={{
-                    display: "inline-flex",
-                    padding: "4px 8px",
-                    borderRadius: "999px",
-                    background: "#e3e8ff",
-                    color: "#3730a3",
-                    fontSize: "11px",
-                    fontWeight: 700,
+                    display:
+                      "inline-flex",
+                    padding:
+                      "4px 8px",
+                    borderRadius:
+                      "999px",
+                    background:
+                      "#e3e8ff",
+                    color:
+                      "#3730a3",
+                    fontSize:
+                      "11px",
+                    fontWeight:
+                      700,
                   }}
                 >
-                  {data.totalPincodes}/{FREE_PINCODE_LIMIT} pincodes
+                  {data.totalPincodes}/
+                  {
+                    FREE_PINCODE_LIMIT
+                  }{" "}
+                  pincodes
                 </span>
               </div>
 
               <p
                 style={{
-                  margin: "7px 0 12px",
-                  color: "#5c5f62",
-                  fontSize: "13px",
-                  lineHeight: 1.5,
+                  margin:
+                    "7px 0 12px",
+                  color:
+                    "#5c5f62",
+                  fontSize:
+                    "13px",
+                  lineHeight:
+                    1.5,
                 }}
               >
                 {freeRemaining > 0
@@ -703,117 +919,159 @@ export default function Index() {
 
               <div
                 style={{
-                  maxWidth: "560px",
+                  maxWidth:
+                    "560px",
                   height: "8px",
-                  overflow: "hidden",
-                  borderRadius: "999px",
-                  background: "#dfe3e8",
+                  overflow:
+                    "hidden",
+                  borderRadius:
+                    "999px",
+                  background:
+                    "#dfe3e8",
                 }}
               >
                 <div
                   style={{
                     width: `${freeUsagePercentage}%`,
-                    height: "100%",
-                    borderRadius: "999px",
+                    height:
+                      "100%",
+                    borderRadius:
+                      "999px",
 
                     background:
-                      freeUsagePercentage >= 100 ? "#b98900" : "#4f46e5",
+                      freeUsagePercentage >=
+                      100
+                        ? "#b98900"
+                        : "#4f46e5",
                   }}
                 />
               </div>
             </div>
 
-            <s-button onClick={openPricingPage} variant="primary">
+            <s-button
+              onClick={
+                openPricingPage
+              }
+              variant="primary"
+            >
               View Pro plan
             </s-button>
           </section>
         )}
 
-
         {!isPro &&
-  data.planRestrictedPincodes >
-    0 && (
-    <section
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent:
-          "space-between",
-        gap: "20px",
-        flexWrap: "wrap",
-        padding: "18px 20px",
-        border:
-          "1px solid #e7c96a",
-        borderRadius: "14px",
-        background: "#fff8e5",
-      }}
-    >
-      <div>
-        <h3
-          style={{
-            margin: 0,
-            color: "#5c3c00",
-            fontSize: "15px",
-            fontWeight: 700,
-          }}
-        >
-          Extra pincodes are inactive
-        </h3>
+          data
+            .planRestrictedPincodes >
+            0 && (
+            <section
+              style={{
+                display:
+                  "flex",
+                alignItems:
+                  "center",
+                justifyContent:
+                  "space-between",
+                gap: "20px",
+                flexWrap:
+                  "wrap",
+                padding:
+                  "18px 20px",
+                border:
+                  "1px solid #e7c96a",
+                borderRadius:
+                  "14px",
+                background:
+                  "#fff8e5",
+              }}
+            >
+              <div>
+                <h3
+                  style={{
+                    margin: 0,
+                    color:
+                      "#5c3c00",
+                    fontSize:
+                      "15px",
+                    fontWeight:
+                      700,
+                  }}
+                >
+                  Extra pincodes are inactive
+                </h3>
 
-        <p
-          style={{
-            margin: "5px 0 0",
-            color: "#6f4e00",
-            fontSize: "13px",
-            lineHeight: 1.5,
-          }}
-        >
-          You have{" "}
-          <strong>
-            {data.storedPincodes}
-          </strong>{" "}
-          stored pincodes. Only the first{" "}
-          <strong>
-            {FREE_PINCODE_LIMIT}
-          </strong>{" "}
-          are available on the Free plan.
-          The remaining{" "}
-          <strong>
-            {
-              data.planRestrictedPincodes
-            }
-          </strong>{" "}
-          will automatically reactivate
-          after upgrading to Pro.
-        </p>
-      </div>
+                <p
+                  style={{
+                    margin:
+                      "5px 0 0",
+                    color:
+                      "#6f4e00",
+                    fontSize:
+                      "13px",
+                    lineHeight:
+                      1.5,
+                  }}
+                >
+                  You have{" "}
+                  <strong>
+                    {
+                      data.storedPincodes
+                    }
+                  </strong>{" "}
+                  stored pincodes. Only
+                  the first{" "}
+                  <strong>
+                    {
+                      FREE_PINCODE_LIMIT
+                    }
+                  </strong>{" "}
+                  are available on the
+                  Free plan. The remaining{" "}
+                  <strong>
+                    {
+                      data
+                        .planRestrictedPincodes
+                    }
+                  </strong>{" "}
+                  will automatically
+                  reactivate after
+                  upgrading to Pro.
+                </p>
+              </div>
 
-      <s-button
-        onClick={openPricingPage}
-        variant="primary"
-      >
-        Upgrade to Pro
-      </s-button>
-    </section>
-  )}
+              <s-button
+                onClick={
+                  openPricingPage
+                }
+                variant="primary"
+              >
+                Upgrade to Pro
+              </s-button>
+            </section>
+          )}
 
         <section>
           <div
             style={{
               display: "flex",
-              alignItems: "flex-end",
-              justifyContent: "space-between",
+              alignItems:
+                "flex-end",
+              justifyContent:
+                "space-between",
               gap: "16px",
-              marginBottom: "14px",
+              marginBottom:
+                "14px",
             }}
           >
             <div>
               <h2
                 style={{
                   margin: 0,
-                  color: "#202223",
-                  fontSize: "20px",
-                  fontWeight: 700,
+                  color:
+                    "#202223",
+                  fontSize:
+                    "20px",
+                  fontWeight:
+                    700,
                 }}
               >
                 Store overview
@@ -821,9 +1079,12 @@ export default function Index() {
 
               <p
                 style={{
-                  margin: "5px 0 0",
-                  color: "#6d7175",
-                  fontSize: "14px",
+                  margin:
+                    "5px 0 0",
+                  color:
+                    "#6d7175",
+                  fontSize:
+                    "14px",
                 }}
               >
                 A quick summary of your current serviceability data.
@@ -834,13 +1095,16 @@ export default function Index() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(210px, 1fr))",
               gap: "16px",
             }}
           >
             <StatCard
               label="Total pincodes"
-              value={data.totalPincodes}
+              value={
+                data.totalPincodes
+              }
               description={
                 isPro
                   ? "All pincodes currently stored in your account."
@@ -851,22 +1115,28 @@ export default function Index() {
 
             <StatCard
               label="Active pincodes"
-              value={data.activePincodes}
-              description={`${data.activePercentage}% of your pincode database is active.`}
+              value={
+                data.activePincodes
+              }
+              description={`${data.activePercentage}% of your available pincode database is active.`}
               accent="#008060"
             />
 
             <StatCard
               label="COD enabled"
-              value={data.codEnabledPincodes}
-              description="Pincodes currently accepting cash on delivery."
+              value={
+                data.codEnabledPincodes
+              }
+              description="Active pincodes currently accepting cash on delivery."
               accent="#b98900"
             />
 
             <StatCard
               label="Prepaid enabled"
-              value={data.prepaidEnabledPincodes}
-              description="Pincodes currently accepting prepaid orders."
+              value={
+                data.prepaidEnabledPincodes
+              }
+              description="Active pincodes currently accepting prepaid orders."
               accent="#006fbb"
             />
           </div>
@@ -875,7 +1145,8 @@ export default function Index() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "minmax(0, 1.3fr) minmax(300px, 0.7fr)",
+            gridTemplateColumns:
+              "minmax(0, 1.3fr) minmax(300px, 0.7fr)",
             gap: "20px",
           }}
           className="pincode-dashboard-two-column"
@@ -883,28 +1154,38 @@ export default function Index() {
           <section
             style={{
               padding: "24px",
-              border: "1px solid #e3e5e7",
-              borderRadius: "16px",
-              background: "#ffffff",
-              boxShadow: "0 4px 18px rgba(20, 25, 30, 0.04)",
+              border:
+                "1px solid #e3e5e7",
+              borderRadius:
+                "16px",
+              background:
+                "#ffffff",
+              boxShadow:
+                "0 4px 18px rgba(20, 25, 30, 0.04)",
             }}
           >
             <div
               style={{
                 display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
+                alignItems:
+                  "center",
+                justifyContent:
+                  "space-between",
                 gap: "16px",
-                marginBottom: "4px",
+                marginBottom:
+                  "4px",
               }}
             >
               <div>
                 <h2
                   style={{
                     margin: 0,
-                    color: "#202223",
-                    fontSize: "19px",
-                    fontWeight: 700,
+                    color:
+                      "#202223",
+                    fontSize:
+                      "19px",
+                    fontWeight:
+                      700,
                   }}
                 >
                   Validation status
@@ -912,35 +1193,47 @@ export default function Index() {
 
                 <p
                   style={{
-                    margin: "5px 0 0",
-                    color: "#6d7175",
-                    fontSize: "14px",
+                    margin:
+                      "5px 0 0",
+                    color:
+                      "#6d7175",
+                    fontSize:
+                      "14px",
                   }}
                 >
                   Review the storefront rules currently active.
                 </p>
               </div>
 
-              <s-link href="/app/settings">Edit settings</s-link>
+              <s-link href="/app/settings">
+                Edit settings
+              </s-link>
             </div>
 
             <StatusRow
               label="Require pincode validation"
-              enabled={data.requireValidation}
+              enabled={
+                data.requireValidation
+              }
               description="Customers must validate their delivery pincode before continuing."
               isPro={isPro}
             />
 
             <StatusRow
               label="Restrict Add to Cart"
-              enabled={data.restrictAddToCart}
+              enabled={
+                data.restrictAddToCart
+              }
               description="The visible Add to Cart button is restricted until successful validation."
+              proRequired
               isPro={isPro}
             />
 
             <StatusRow
               label="Restrict Buy Now"
-              enabled={data.restrictBuyNow}
+              enabled={
+                data.restrictBuyNow
+              }
               description="The dynamic checkout button is restricted until successful validation."
               proRequired
               isPro={isPro}
@@ -950,10 +1243,14 @@ export default function Index() {
           <section
             style={{
               padding: "24px",
-              border: "1px solid #e3e5e7",
-              borderRadius: "16px",
-              background: "#ffffff",
-              boxShadow: "0 4px 18px rgba(20, 25, 30, 0.04)",
+              border:
+                "1px solid #e3e5e7",
+              borderRadius:
+                "16px",
+              background:
+                "#ffffff",
+              boxShadow:
+                "0 4px 18px rgba(20, 25, 30, 0.04)",
             }}
           >
             <h2
@@ -969,7 +1266,8 @@ export default function Index() {
 
             <p
               style={{
-                margin: "5px 0 20px",
+                margin:
+                  "5px 0 20px",
                 color: "#6d7175",
                 fontSize: "14px",
                 lineHeight: 1.5,
@@ -980,20 +1278,27 @@ export default function Index() {
 
             <div
               style={{
-                marginBottom: "12px",
+                marginBottom:
+                  "12px",
                 height: "10px",
-                overflow: "hidden",
-                borderRadius: "999px",
-                background: "#e4e5e7",
+                overflow:
+                  "hidden",
+                borderRadius:
+                  "999px",
+                background:
+                  "#e4e5e7",
               }}
             >
               <div
                 style={{
                   width: `${data.activePercentage}%`,
                   height: "100%",
-                  borderRadius: "999px",
-                  background: "#008060",
-                  transition: "width 0.3s ease",
+                  borderRadius:
+                    "999px",
+                  background:
+                    "#008060",
+                  transition:
+                    "width 0.3s ease",
                 }}
               />
             </div>
@@ -1001,45 +1306,66 @@ export default function Index() {
             <div
               style={{
                 display: "flex",
-                justifyContent: "space-between",
+                justifyContent:
+                  "space-between",
                 gap: "16px",
-                marginBottom: "22px",
-                color: "#6d7175",
-                fontSize: "13px",
+                marginBottom:
+                  "22px",
+                color:
+                  "#6d7175",
+                fontSize:
+                  "13px",
               }}
             >
-              <span>{data.activePincodes} active</span>
+              <span>
+                {data.activePincodes}{" "}
+                active
+              </span>
 
-              <span>{data.inactivePincodes} inactive</span>
+              <span>
+                {
+                  data.inactivePincodes
+                }{" "}
+                inactive
+              </span>
             </div>
 
-            {data.totalPincodes === 0 ? (
+            {data.totalPincodes ===
+            0 ? (
               <div
                 style={{
                   padding: "16px",
-                  borderRadius: "12px",
-                  background: "#fff8e5",
-                  color: "#5c3c00",
-                  fontSize: "13px",
-                  lineHeight: 1.6,
+                  borderRadius:
+                    "12px",
+                  background:
+                    "#fff8e5",
+                  color:
+                    "#5c3c00",
+                  fontSize:
+                    "13px",
+                  lineHeight:
+                    1.6,
                 }}
               >
-                No pincodes have been added yet. Add one manually or import a
-                CSV file to activate storefront validation.
+                No pincodes have been added yet. Add one manually to activate storefront validation.
               </div>
             ) : (
               <div
                 style={{
                   padding: "16px",
-                  borderRadius: "12px",
-                  background: "#e8f5ee",
-                  color: "#075c3c",
-                  fontSize: "13px",
-                  lineHeight: 1.6,
+                  borderRadius:
+                    "12px",
+                  background:
+                    "#e8f5ee",
+                  color:
+                    "#075c3c",
+                  fontSize:
+                    "13px",
+                  lineHeight:
+                    1.6,
                 }}
               >
-                Your pincode database is active and ready for storefront
-                validation.
+                Your available pincode database is ready for storefront validation.
               </div>
             )}
           </section>
@@ -1048,7 +1374,8 @@ export default function Index() {
         <section>
           <div
             style={{
-              marginBottom: "14px",
+              marginBottom:
+                "14px",
             }}
           >
             <h2
@@ -1064,7 +1391,8 @@ export default function Index() {
 
             <p
               style={{
-                margin: "5px 0 0",
+                margin:
+                  "5px 0 0",
                 color: "#6d7175",
                 fontSize: "14px",
               }}
@@ -1076,7 +1404,8 @@ export default function Index() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(230px, 1fr))",
               gap: "16px",
             }}
           >
@@ -1099,7 +1428,9 @@ export default function Index() {
               buttonText="Import pincode data"
               proRequired
               isPro={isPro}
-              onUpgrade={openPricingPage}
+              onUpgrade={
+                openPricingPage
+              }
             />
 
             <ActionCard
@@ -1136,6 +1467,10 @@ export default function Index() {
   );
 }
 
-export const headers: HeadersFunction = (headersArgs) => {
-  return boundary.headers(headersArgs);
+export const headers: HeadersFunction = (
+  headersArgs,
+) => {
+  return boundary.headers(
+    headersArgs,
+  );
 };

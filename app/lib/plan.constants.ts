@@ -1,0 +1,1 @@
+export const FREE_PINCODE_LIMIT = 100;
