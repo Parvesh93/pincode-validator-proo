@@ -1282,6 +1282,10 @@ const [
 
   };
 
+  const openPricingPage = () => {
+    window.location.assign("/app/billing");
+  };
+
   return (
     <AppProvider
       i18n={enTranslations}
@@ -1543,12 +1547,22 @@ const [
           👑 Pro feature
         </span>
 
-        <Link
+        {/* <Link
   to="/app/billing"
   className="pro-settings-plan-link"
 >
   View plans
-</Link>
+</Link> */}
+
+
+<button
+  type="button"
+  className="pro-settings-plan-link"
+  onClick={openPricingPage}
+>
+  View plans
+</button>
+
       </div>
     ) : null}
 
@@ -1574,9 +1588,13 @@ const [
           👑 Pro feature
         </span>
 
-        <a href="/app/billing">
-          View plans
-        </a>
+        <button
+  type="button"
+  className="pro-settings-plan-link"
+  onClick={openPricingPage}
+>
+  View plans
+</button>
       </div>
     ) : null}
 

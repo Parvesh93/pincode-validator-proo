@@ -277,9 +277,11 @@ popupAutoClose:
         ),
       ),
 
-    locationDetectionEnabled:
-      settings?.locationDetectionEnabled ??
-      false,
+    // locationDetectionEnabled:
+    //   settings?.locationDetectionEnabled ??
+    //   false,
+
+    locationDetectionEnabled: false,
   };
 }
 
@@ -525,7 +527,7 @@ if (!shopRecord) {
 }
 
 const isPro =
-  shopRecord.selectedPlan === "pro";
+  shopRecord.selectedPlan?.toLowerCase() === "pro";
 
     const settings =
   getStorefrontSettings(
