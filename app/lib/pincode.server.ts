@@ -393,3 +393,129 @@ export async function bulkUpsertPincodes(
     insertedOrUpdated: rows.length,
   };
 }
+
+export const FREE_PINCODE_LIMIT = 100;
+
+export async function enforcePincodePlanLimit({
+  shopId,
+  isPro,
+}: {
+  shopId: string;
+  isPro: boolean;
+}) {
+  /*
+   * When the merchant upgrades to Pro, reactivate only
+   * the records previously disabled because of the plan.
+   *
+   * Manually inactive records remain inactive.
+   */
+  if (isPro) {
+    const restored =
+      await prisma.pincode.updateMany({
+        where: {
+          shopId,
+          disabledByPlan: true,
+        },
+        data: {
+          isActive: true,
+          disabledByPlan: false,
+        },
+      });
+
+    return {
+      plan: "pro" as const,
+      restrictedCount: 0,
+      restoredCount: restored.count,
+    };
+  }
+
+  /*
+   * Determine the first 100 stored records.
+   */
+  const allowedPincodes =
+    await prisma.pincode.findMany({
+      where: {
+        shopId,
+      },
+      orderBy: [
+        {
+          createdAt: "asc",
+        },
+        {
+          id: "asc",
+        },
+      ],
+      take: FREE_PINCODE_LIMIT,
+      select: {
+        id: true,
+      },
+    });
+
+  const allowedIds =
+    allowedPincodes.map(
+      (item) => item.id,
+    );
+
+  return prisma.$transaction(
+    async (transaction) => {
+      /*
+       * Records previously restricted by the plan may move
+       * into the first 100 when older records are deleted.
+       */
+      if (allowedIds.length > 0) {
+        await transaction.pincode.updateMany({
+          where: {
+            shopId,
+            id: {
+              in: allowedIds,
+            },
+            disabledByPlan: true,
+          },
+          data: {
+            isActive: true,
+            disabledByPlan: false,
+          },
+        });
+      }
+
+      /*
+       * Disable only active records above the first 100.
+       * Existing manually inactive records are untouched.
+       */
+      const restricted =
+        await transaction.pincode.updateMany({
+          where: {
+            shopId,
+            isActive: true,
+            ...(allowedIds.length > 0
+              ? {
+                  id: {
+                    notIn: allowedIds,
+                  },
+                }
+              : {}),
+          },
+          data: {
+            isActive: false,
+            disabledByPlan: true,
+          },
+        });
+
+      const restrictedCount =
+        await transaction.pincode.count({
+          where: {
+            shopId,
+            disabledByPlan: true,
+          },
+        });
+
+      return {
+        plan: "free" as const,
+        restrictedCount,
+        newlyRestrictedCount:
+          restricted.count,
+        restoredCount: 0,
+      };
+    },
+  );
+}

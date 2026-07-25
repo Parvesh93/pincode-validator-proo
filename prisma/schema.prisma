@@ -111,6 +111,7 @@ model Pincode {
   prepaidAvailable Boolean  @default(true)
   estDeliveryDays  Int?
   isActive         Boolean  @default(true)
+  disabledByPlan Boolean @default(false)
   source           String   @default("manual")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt

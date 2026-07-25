@@ -13,6 +13,7 @@ import {
 
 import { authenticate } from "../shopify.server";
 import {
+  FREE_PINCODE_LIMIT,
   bulkDeletePincodes,
   bulkUpdatePincodeStatus,
   deletePincode,
@@ -23,9 +24,15 @@ import {
   upsertSinglePincode,
 } from "../lib/pincode.server";
 
+import {
+  getBillingStatus,
+} from "../lib/billing.server";
+
 import type {
   AppBillingContext,
 } from "../types/billing";
+
+import prisma from "../db.server";
 
 type ActionData = {
   error?: string;
@@ -104,8 +111,13 @@ function getSelectedIds(
 export async function loader({
   request,
 }: LoaderFunctionArgs) {
-  const { session } =
-    await authenticate.admin(request);
+ const {
+  billing,
+  session,
+} =
+  await authenticate.admin(
+    request,
+  );
 
   const url = new URL(request.url);
 
@@ -175,8 +187,12 @@ export async function loader({
 export async function action({
   request,
 }: ActionFunctionArgs) {
-  const { session } =
-    await authenticate.admin(request);
+  const {
+    billing,
+    session,
+  } = await authenticate.admin(
+    request,
+  );
 
   const formData =
     await request.formData();
@@ -189,6 +205,15 @@ export async function action({
     await getOrCreateShopByDomain(
       session.shop,
     );
+
+  const billingStatus =
+    await getBillingStatus(
+      billing,
+      shop.id,
+    );
+
+  const isPro =
+    billingStatus.isPro;
 
   try {
     if (intent === "save") {
@@ -215,6 +240,13 @@ export async function action({
             "",
         ).trim() || null;
 
+      const requestedIsActive =
+        toBool(
+          formData.get(
+            "isActive",
+          ),
+        );
+
       const deliveryDaysResult =
         parseDeliveryDays(
           String(
@@ -224,9 +256,7 @@ export async function action({
           ).trim(),
         );
 
-      if (
-        !validatePincode(pincode)
-      ) {
+      if (!validatePincode(pincode)) {
         return data(
           {
             error:
@@ -252,34 +282,119 @@ export async function action({
         );
       }
 
+      /*
+       * Check whether this pincode already exists.
+       * Existing records should remain editable even when
+       * the Free plan already has 100 stored pincodes.
+       */
+      const existingPincode =
+        await prisma.pincode.findFirst({
+          where: {
+            shopId: shop.id,
+            pincode,
+          },
+          select: {
+            id: true,
+            isActive: true,
+          },
+        });
+
+      if (!isPro) {
+        /*
+         * Prevent creation of a new record after the
+         * Free plan reaches 100 stored pincodes.
+         */
+        if (!existingPincode) {
+          const storedCount =
+            await prisma.pincode.count({
+              where: {
+                shopId: shop.id,
+              },
+            });
+
+          if (
+            storedCount >=
+            FREE_PINCODE_LIMIT
+          ) {
+            return data(
+              {
+                error:
+                  "You have reached the Free plan limit of 100 pincodes. Upgrade to Pro to add more.",
+              },
+              {
+                status: 403,
+              },
+            );
+          }
+        }
+
+        /*
+         * Prevent activating another record if 100
+         * pincodes are already active.
+         */
+        const isBeingActivated =
+          requestedIsActive &&
+          !existingPincode?.isActive;
+
+        if (isBeingActivated) {
+          const activeCount =
+            await prisma.pincode.count({
+              where: {
+                shopId: shop.id,
+                isActive: true,
+              },
+            });
+
+          if (
+            activeCount >=
+            FREE_PINCODE_LIMIT
+          ) {
+            return data(
+              {
+                error:
+                  "The Free plan supports a maximum of 100 active pincodes.",
+              },
+              {
+                status: 403,
+              },
+            );
+          }
+        }
+      }
+
       await upsertSinglePincode({
         shopId: shop.id,
         pincode,
         city,
         state,
         country,
-        codAvailable: toBool(
-          formData.get(
-            "codAvailable",
+
+        codAvailable:
+          toBool(
+            formData.get(
+              "codAvailable",
+            ),
           ),
-        ),
-        prepaidAvailable: toBool(
-          formData.get(
-            "prepaidAvailable",
+
+        prepaidAvailable:
+          toBool(
+            formData.get(
+              "prepaidAvailable",
+            ),
           ),
-        ),
+
         estDeliveryDays:
           deliveryDaysResult.value,
-        isActive: toBool(
-          formData.get(
-            "isActive",
-          ),
-        ),
+
+        isActive:
+          requestedIsActive,
+
         source: "manual",
       });
 
       return data({
-        success: `Pincode ${pincode} saved successfully.`,
+        success:
+          `Pincode ${pincode} saved successfully.`,
       });
     }
 
@@ -311,6 +426,13 @@ export async function action({
             "",
         ).trim() || null;
 
+      const requestedIsActive =
+        toBool(
+          formData.get(
+            "isActive",
+          ),
+        );
+
       const deliveryDaysResult =
         parseDeliveryDays(
           String(
@@ -332,9 +454,7 @@ export async function action({
         );
       }
 
-      if (
-        !validatePincode(pincode)
-      ) {
+      if (!validatePincode(pincode)) {
         return data(
           {
             error:
@@ -360,6 +480,57 @@ export async function action({
         );
       }
 
+      const existingRecord =
+        await getPincodeById(
+          id,
+          shop.id,
+        );
+
+      if (!existingRecord) {
+        return data(
+          {
+            error:
+              "Pincode record not found.",
+          },
+          {
+            status: 404,
+          },
+        );
+      }
+
+      /*
+       * An existing inactive record cannot be activated
+       * when the Free plan already has 100 active records.
+       */
+      if (
+        !isPro &&
+        requestedIsActive &&
+        !existingRecord.isActive
+      ) {
+        const activeCount =
+          await prisma.pincode.count({
+            where: {
+              shopId: shop.id,
+              isActive: true,
+            },
+          });
+
+        if (
+          activeCount >=
+          FREE_PINCODE_LIMIT
+        ) {
+          return data(
+            {
+              error:
+                "The Free plan supports a maximum of 100 active pincodes.",
+            },
+            {
+              status: 403,
+            },
+          );
+        }
+      }
+
       await updatePincode(
         id,
         shop.id,
@@ -368,29 +539,34 @@ export async function action({
           city,
           state,
           country,
-          codAvailable: toBool(
-            formData.get(
-              "codAvailable",
+
+          codAvailable:
+            toBool(
+              formData.get(
+                "codAvailable",
+              ),
             ),
-          ),
-          prepaidAvailable: toBool(
-            formData.get(
-              "prepaidAvailable",
+
+          prepaidAvailable:
+            toBool(
+              formData.get(
+                "prepaidAvailable",
+              ),
             ),
-          ),
+
           estDeliveryDays:
             deliveryDaysResult.value,
-          isActive: toBool(
-            formData.get(
-              "isActive",
-            ),
-          ),
+
+          isActive:
+            requestedIsActive,
+
           source: "manual",
         },
       );
 
       return data({
-        success: `Pincode ${pincode} updated successfully.`,
+        success:
+          `Pincode ${pincode} updated successfully.`,
       });
     }
 
@@ -399,9 +575,13 @@ export async function action({
         "delete:",
       )
     ) {
-      const id = intent
-        .replace("delete:", "")
-        .trim();
+      const id =
+        intent
+          .replace(
+            "delete:",
+            "",
+          )
+          .trim();
 
       if (!id) {
         return data(
@@ -430,7 +610,9 @@ export async function action({
       intent === "bulk-activate"
     ) {
       const ids =
-        getSelectedIds(formData);
+        getSelectedIds(
+          formData,
+        );
 
       if (!ids.length) {
         return data(
@@ -444,6 +626,55 @@ export async function action({
         );
       }
 
+      if (!isPro) {
+        const [
+          activeCount,
+          inactiveSelectedCount,
+        ] =
+          await Promise.all([
+            prisma.pincode.count({
+              where: {
+                shopId: shop.id,
+                isActive: true,
+              },
+            }),
+
+            prisma.pincode.count({
+              where: {
+                shopId: shop.id,
+                id: {
+                  in: ids,
+                },
+                isActive: false,
+              },
+            }),
+          ]);
+
+        const remainingSlots =
+          Math.max(
+            FREE_PINCODE_LIMIT -
+              activeCount,
+            0,
+          );
+
+        if (
+          inactiveSelectedCount >
+          remainingSlots
+        ) {
+          return data(
+            {
+              error:
+                remainingSlots === 0
+                  ? "The Free plan supports a maximum of 100 active pincodes."
+                  : `You can activate only ${remainingSlots} more pincode(s) on the Free plan.`,
+            },
+            {
+              status: 403,
+            },
+          );
+        }
+      }
+
       const result =
         await bulkUpdatePincodeStatus(
           ids,
@@ -452,7 +683,8 @@ export async function action({
         );
 
       return data({
-        success: `${result.count} pincode(s) activated successfully.`,
+        success:
+          `${result.count} pincode(s) activated successfully.`,
       });
     }
 
@@ -461,7 +693,9 @@ export async function action({
       "bulk-deactivate"
     ) {
       const ids =
-        getSelectedIds(formData);
+        getSelectedIds(
+          formData,
+        );
 
       if (!ids.length) {
         return data(
@@ -483,7 +717,8 @@ export async function action({
         );
 
       return data({
-        success: `${result.count} pincode(s) deactivated successfully.`,
+        success:
+          `${result.count} pincode(s) deactivated successfully.`,
       });
     }
 
@@ -491,7 +726,9 @@ export async function action({
       intent === "bulk-delete"
     ) {
       const ids =
-        getSelectedIds(formData);
+        getSelectedIds(
+          formData,
+        );
 
       if (!ids.length) {
         return data(
@@ -512,13 +749,15 @@ export async function action({
         );
 
       return data({
-        success: `${result.count} pincode(s) deleted successfully.`,
+        success:
+          `${result.count} pincode(s) deleted successfully.`,
       });
     }
 
     return data(
       {
-        error: "Invalid action.",
+        error:
+          "Invalid action.",
       },
       {
         status: 400,
@@ -929,9 +1168,11 @@ export default function PincodesPage() {
 
                 <div className="availability-grid">
                   <label
+                    htmlFor="prepaidAvailable"
                     style={optionCard}
                   >
                     <input
+                      id="prepaidAvailable"
                       type="checkbox"
                       name="prepaidAvailable"
                       defaultChecked={
@@ -964,9 +1205,11 @@ export default function PincodesPage() {
                   </label>
 
                   <label
+                    htmlFor="codAvailable"
                     style={optionCard}
                   >
                     <input
+                      id="codAvailable"
                       type="checkbox"
                       name="codAvailable"
                       defaultChecked={
@@ -997,9 +1240,11 @@ export default function PincodesPage() {
                   </label>
 
                   <label
+                    htmlFor="isActive"
                     style={optionCard}
                   >
                     <input
+                      id="isActive"
                       type="checkbox"
                       name="isActive"
                       defaultChecked={
