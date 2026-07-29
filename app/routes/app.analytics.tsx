@@ -5,6 +5,7 @@ import type {
 import {
   data,
   useLoaderData,
+  redirect,
   type LoaderFunctionArgs,
 } from "react-router";
 
@@ -19,35 +20,33 @@ import {
 import {
   authenticate,
 } from "../shopify.server";
+import { getBillingStatus } from "app/lib/billing.server";
 
-const { billing, session } =
-  await authenticate.admin(request);
-
-const shop =
-  await getOrCreateShopByDomain(
-    session.shop,
-  );
-
-const billingStatus =
-  await getBillingStatus(
-    billing,
-    shop.id,
-  );
-
-if (!billingStatus.isPro) {
-  throw redirect("/app");
-}
 
 export async function loader({
   request,
 }: LoaderFunctionArgs) {
-  const { session } =
-    await authenticate.admin(request);
+  const {
+    billing,
+    session,
+  } = await authenticate.admin(
+    request,
+  );
 
   const shop =
     await getOrCreateShopByDomain(
       session.shop,
     );
+
+  const billingStatus =
+    await getBillingStatus(
+      billing,
+      shop.id,
+    );
+
+  if (!billingStatus.isPro) {
+    throw redirect("/app");
+  }
 
   const analytics =
     await getAnalyticsDashboardData(
