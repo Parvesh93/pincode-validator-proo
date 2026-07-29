@@ -5,7 +5,7 @@ import type {
 import {
   data,
   useLoaderData,
-  redirect,
+  useOutletContext,
   type LoaderFunctionArgs,
 } from "react-router";
 
@@ -20,7 +20,13 @@ import {
 import {
   authenticate,
 } from "../shopify.server";
-import { getBillingStatus } from "app/lib/billing.server";
+import {
+  getBillingStatus,
+} from "../lib/billing.server";
+
+import type {
+  AppBillingContext,
+} from "../types/billing";
 
 
 export async function loader({
@@ -45,7 +51,11 @@ export async function loader({
     );
 
   if (!billingStatus.isPro) {
-    throw redirect("/app");
+    return data({
+      isPro: false as const,
+      shopDomain: session.shop,
+      analytics: null,
+    });
   }
 
   const analytics =
@@ -54,6 +64,7 @@ export async function loader({
     );
 
   return data({
+    isPro: true as const,
     shopDomain: session.shop,
     analytics,
   });
@@ -592,11 +603,100 @@ function TrendChart({
 }
 
 export default function AnalyticsPage() {
-  const {
-    analytics,
-    shopDomain,
-  } =
-    useLoaderData<typeof loader>();
+  const data =
+  useLoaderData<typeof loader>();
+
+const {
+  pricingUrl,
+} =
+  useOutletContext<AppBillingContext>();
+
+const openPricingPage = () => {
+  window.open(
+    pricingUrl,
+    "_top",
+  );
+};
+
+if (!data.isPro) {
+  return (
+    <s-page heading="Analytics">
+      <div
+        style={{
+          display: "grid",
+          placeItems: "center",
+          minHeight: "520px",
+          padding: "24px",
+        }}
+      >
+        <section
+          style={{
+            width: "100%",
+            maxWidth: "620px",
+            padding: "40px",
+            border: "1px solid #e3e5e7",
+            borderRadius: "18px",
+            background: "#ffffff",
+            boxShadow:
+              "0 8px 28px rgba(20, 25, 30, 0.08)",
+            textAlign: "center",
+          }}
+        >
+          <div
+            style={{
+              display: "grid",
+              placeItems: "center",
+              width: "58px",
+              height: "58px",
+              margin: "0 auto 18px",
+              borderRadius: "16px",
+              background: "#fff3cd",
+              fontSize: "27px",
+            }}
+          >
+            👑
+          </div>
+
+          <h2
+            style={{
+              margin: "0 0 10px",
+              color: "#202223",
+              fontSize: "24px",
+            }}
+          >
+            Analytics is a Pro feature
+          </h2>
+
+          <p
+            style={{
+              maxWidth: "480px",
+              margin: "0 auto 24px",
+              color: "#6d7175",
+              fontSize: "14px",
+              lineHeight: 1.7,
+            }}
+          >
+            Upgrade to Pro to view validation trends,
+            successful and failed searches, top pincodes,
+            city demand and recent storefront activity.
+          </p>
+
+          <s-button
+            variant="primary"
+            onClick={openPricingPage}
+          >
+            Upgrade to Pro
+          </s-button>
+        </section>
+      </div>
+    </s-page>
+  );
+}
+
+const {
+  analytics,
+  shopDomain,
+} = data;
 
   const {
     summary,
