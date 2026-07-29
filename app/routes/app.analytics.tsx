@@ -20,6 +20,24 @@ import {
   authenticate,
 } from "../shopify.server";
 
+const { billing, session } =
+  await authenticate.admin(request);
+
+const shop =
+  await getOrCreateShopByDomain(
+    session.shop,
+  );
+
+const billingStatus =
+  await getBillingStatus(
+    billing,
+    shop.id,
+  );
+
+if (!billingStatus.isPro) {
+  throw redirect("/app");
+}
+
 export async function loader({
   request,
 }: LoaderFunctionArgs) {
