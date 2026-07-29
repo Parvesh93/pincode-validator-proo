@@ -1,7 +1,14 @@
 import "@shopify/polaris/build/esm/styles.css";
 
 import { useCallback, useMemo, useState } from "react";
-import { useFetcher, useNavigate, } from "react-router";
+import {
+  data,
+  useFetcher,
+  useLoaderData,
+  useNavigate,
+  useOutletContext,
+  type LoaderFunctionArgs,
+} from "react-router";
 import {
   AppProvider,
   Banner,
@@ -17,6 +24,22 @@ import {
   RadioButton,
   Text,
 } from "@shopify/polaris";
+
+import {
+  authenticate,
+} from "../shopify.server";
+
+import {
+  getOrCreateShopByDomain,
+} from "../lib/pincode.server";
+
+import {
+  getBillingStatus,
+} from "../lib/billing.server";
+
+import type {
+  AppBillingContext,
+} from "../types/billing";
 
 
 
@@ -49,6 +72,37 @@ type ImportResponse = {
   summary?: ImportSummary;
 };
 
+
+export async function loader({
+  request,
+}: LoaderFunctionArgs) {
+  const {
+    billing,
+    session,
+  } = await authenticate.admin(
+    request,
+  );
+
+  const shop =
+    await getOrCreateShopByDomain(
+      session.shop,
+    );
+
+  const billingStatus =
+    await getBillingStatus(
+      billing,
+      shop.id,
+    );
+
+  return data({
+    isPro:
+      billingStatus.isPro,
+
+    shopDomain:
+      session.shop,
+  });
+}
+
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 
 function formatFileSize(bytes: number) {
@@ -64,115 +118,373 @@ function formatFileSize(bytes: number) {
 }
 
 export default function ImportPincodesPage() {
-  const fetcher = useFetcher<ImportResponse>();
+  const loaderData =
+    useLoaderData<typeof loader>();
 
-  const [selectedFile, setSelectedFile] =
-    useState<File | null>(null);
+  const fetcher =
+    useFetcher<ImportResponse>();
 
-  const [mode, setMode] =
-    useState<"append" | "replace">("append");
+  const navigate =
+    useNavigate();
 
-  const [clientError, setClientError] =
-    useState<string | null>(null);
+  const {
+    pricingUrl,
+  } =
+    useOutletContext<AppBillingContext>();
 
-  const isLoading = fetcher.state !== "idle";
+  const [
+    selectedFile,
+    setSelectedFile,
+  ] =
+    useState<File | null>(
+      null,
+    );
 
-  const handleDrop = useCallback(
-    (acceptedFiles: File[]) => {
-      setClientError(null);
+  const [
+    mode,
+    setMode,
+  ] =
+    useState<
+      "append" | "replace"
+    >("append");
 
-      const file = acceptedFiles?.[0];
+  const [
+    clientError,
+    setClientError,
+  ] =
+    useState<string | null>(
+      null,
+    );
 
-      if (!file) {
-        setClientError("Please select a CSV file.");
-        return;
-      }
+  const isLoading =
+    fetcher.state !== "idle";
 
-      if (!file.name.toLowerCase().endsWith(".csv")) {
-        setClientError("Only CSV files are supported.");
-        setSelectedFile(null);
-        return;
-      }
+  const handleDrop =
+    useCallback(
+      (
+        acceptedFiles:
+          File[],
+      ) => {
+        setClientError(null);
 
-      if (file.size > MAX_FILE_SIZE_BYTES) {
-        setClientError(
-          "The CSV file cannot be larger than 5 MB.",
+        const file =
+          acceptedFiles?.[0];
+
+        if (!file) {
+          setClientError(
+            "Please select a CSV file.",
+          );
+
+          return;
+        }
+
+        if (
+          !file.name
+            .toLowerCase()
+            .endsWith(".csv")
+        ) {
+          setClientError(
+            "Only CSV files are supported.",
+          );
+
+          setSelectedFile(
+            null,
+          );
+
+          return;
+        }
+
+        if (
+          file.size >
+          MAX_FILE_SIZE_BYTES
+        ) {
+          setClientError(
+            "The CSV file cannot be larger than 5 MB.",
+          );
+
+          setSelectedFile(
+            null,
+          );
+
+          return;
+        }
+
+        setSelectedFile(
+          file,
         );
-        setSelectedFile(null);
-        return;
-      }
+      },
+      [],
+    );
 
-      setSelectedFile(file);
-    },
-    [],
-  );
+  const handleRemoveFile =
+    useCallback(() => {
+      setSelectedFile(
+        null,
+      );
 
-  const navigate = useNavigate();
-
-  const handleRemoveFile = useCallback(() => {
-    setSelectedFile(null);
-    setClientError(null);
-  }, []);
-
-  const handleSubmit = useCallback(() => {
-    setClientError(null);
-
-    if (!selectedFile) {
       setClientError(
-        "Please select a CSV file before importing.",
+        null,
       );
-      return;
-    }
+    }, []);
 
-    if (mode === "replace") {
-      const confirmed = window.confirm(
-        "Replace mode will delete all existing pincodes before importing this file. Do you want to continue?",
+  const handleSubmit =
+    useCallback(() => {
+      setClientError(
+        null,
       );
 
-      if (!confirmed) {
+      /*
+       * The API also enforces this, but keep the
+       * client protected as an additional safeguard.
+       */
+      if (
+        !loaderData.isPro
+      ) {
+        setClientError(
+          "CSV import is available on the Pro plan.",
+        );
+
         return;
       }
-    }
 
-    const formData = new FormData();
+      if (!selectedFile) {
+        setClientError(
+          "Please select a CSV file before importing.",
+        );
 
-    formData.append("file", selectedFile);
-    formData.append("mode", mode);
+        return;
+      }
 
-    fetcher.submit(formData, {
-      method: "post",
-      action: "/api/pincodes/import",
-      encType: "multipart/form-data",
-    });
-  }, [fetcher, mode, selectedFile]);
+      if (
+        mode === "replace"
+      ) {
+        const confirmed =
+          window.confirm(
+            "Replace mode will delete all existing pincodes before importing this file. Do you want to continue?",
+          );
 
-  const invalidRowsTable = useMemo(
-    () =>
-      fetcher.data?.invalidRows?.map((item) => [
-        item.rowNumber,
-        item.row.pincode || "—",
-        item.row.city || "—",
-        item.row.state || "—",
-        item.row.country || "—",
-        item.error,
-      ]) || [],
-    [fetcher.data?.invalidRows],
-  );
+        if (!confirmed) {
+          return;
+        }
+      }
 
-  const sampleCsvUrl = useMemo(() => {
-    const csv = [
-      "pincode,city,state,country,cod_available,prepaid_available,est_delivery_days,is_active",
-      "110001,New Delhi,Delhi,India,true,true,2,true",
-      "400001,Mumbai,Maharashtra,India,false,true,4,true",
-      "560001,Bengaluru,Karnataka,India,true,true,3,true",
-    ].join("\n");
+      const formData =
+        new FormData();
 
-    return `data:text/csv;charset=utf-8,${encodeURIComponent(
-      csv,
-    )}`;
-  }, []);
+      formData.append(
+        "file",
+        selectedFile,
+      );
 
-  const summary = fetcher.data?.summary;
+      formData.append(
+        "mode",
+        mode,
+      );
+
+      fetcher.submit(
+        formData,
+        {
+          method: "post",
+          action:
+            "/api/pincodes/import",
+          encType:
+            "multipart/form-data",
+        },
+      );
+    }, [
+      fetcher,
+      loaderData.isPro,
+      mode,
+      selectedFile,
+    ]);
+
+  const invalidRowsTable =
+    useMemo(
+      () =>
+        fetcher.data
+          ?.invalidRows?.map(
+            (item) => [
+              item.rowNumber,
+              item.row
+                .pincode ||
+                "—",
+              item.row.city ||
+                "—",
+              item.row.state ||
+                "—",
+              item.row
+                .country ||
+                "—",
+              item.error,
+            ],
+          ) || [],
+      [
+        fetcher.data
+          ?.invalidRows,
+      ],
+    );
+
+  const sampleCsvUrl =
+    useMemo(() => {
+      const csv = [
+        "pincode,city,state,country,cod_available,prepaid_available,est_delivery_days,is_active",
+        "110001,New Delhi,Delhi,India,true,true,2,true",
+        "400001,Mumbai,Maharashtra,India,false,true,4,true",
+        "560001,Bengaluru,Karnataka,India,true,true,3,true",
+      ].join("\n");
+
+      return `data:text/csv;charset=utf-8,${encodeURIComponent(
+        csv,
+      )}`;
+    }, []);
+
+  const summary =
+    fetcher.data?.summary;
+
+  const openPricingPage =
+    () => {
+      window.open(
+        pricingUrl,
+        "_top",
+      );
+    };
+
+  /*
+   * All hooks above run before this conditional return.
+   */
+  if (!loaderData.isPro) {
+    return (
+      <AppProvider
+        i18n={{}}
+      >
+        <Page
+          title="Import pincodes"
+          subtitle="Upload and manage delivery serviceability records in bulk."
+          backAction={{
+            content:
+              "Dashboard",
+
+            onAction: () =>
+              navigate("/app"),
+          }}
+        >
+          <div
+            style={{
+              display: "grid",
+              placeItems:
+                "center",
+              minHeight:
+                "520px",
+              padding: "24px",
+            }}
+          >
+            <section
+              style={{
+                width: "100%",
+                maxWidth:
+                  "620px",
+                padding: "40px",
+
+                border:
+                  "1px solid #e3e5e7",
+
+                borderRadius:
+                  "18px",
+
+                background:
+                  "#ffffff",
+
+                boxShadow:
+                  "0 8px 28px rgba(20, 25, 30, 0.08)",
+
+                textAlign:
+                  "center",
+              }}
+            >
+              <div
+                style={{
+                  display:
+                    "grid",
+
+                  placeItems:
+                    "center",
+
+                  width: "58px",
+                  height:
+                    "58px",
+
+                  margin:
+                    "0 auto 18px",
+
+                  borderRadius:
+                    "16px",
+
+                  background:
+                    "#fff3cd",
+
+                  fontSize:
+                    "27px",
+                }}
+              >
+                👑
+              </div>
+
+              <h2
+                style={{
+                  margin:
+                    "0 0 10px",
+
+                  color:
+                    "#202223",
+
+                  fontSize:
+                    "24px",
+                }}
+              >
+                CSV Import is a Pro feature
+              </h2>
+
+              <p
+                style={{
+                  maxWidth:
+                    "480px",
+
+                  margin:
+                    "0 auto 24px",
+
+                  color:
+                    "#6d7175",
+
+                  fontSize:
+                    "14px",
+
+                  lineHeight:
+                    1.7,
+                }}
+              >
+                Upgrade to Pro to
+                import thousands of
+                pincodes, update
+                existing records and
+                safely replace your
+                complete pincode
+                database.
+              </p>
+
+              <Button
+                variant="primary"
+                onClick={
+                  openPricingPage
+                }
+              >
+                Upgrade to Pro
+              </Button>
+            </section>
+          </div>
+        </Page>
+      </AppProvider>
+    );
+  }
 
   return (
     <AppProvider i18n={{}}>
@@ -568,9 +880,15 @@ export default function ImportPincodesPage() {
                   </div>
 
                   <InlineStack gap="300">
-                    <Button url="/app/pincodes">
-                      View saved pincodes
-                    </Button>
+                    <Button
+  onClick={() =>
+    navigate(
+      "/app/pincodes",
+    )
+  }
+>
+  View saved pincodes
+</Button>
 
                     <Button
                       variant="plain"
