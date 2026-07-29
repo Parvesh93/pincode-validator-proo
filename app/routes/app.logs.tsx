@@ -7,6 +7,7 @@ import {
   useLoaderData,
   useNavigation,
   useNavigate,
+  useOutletContext,
   useSearchParams,
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
@@ -49,6 +50,14 @@ import {
   type ValidationLogFilters,
   type ValidationLogSort,
 } from "../lib/validation-logs.server";
+
+import {
+  getBillingStatus,
+} from "../lib/billing.server";
+
+import type {
+  AppBillingContext,
+} from "../types/billing";
 
 type ActionData = {
   success?: string;
@@ -229,15 +238,34 @@ function buildExportUrl(
 export async function loader({
   request,
 }: LoaderFunctionArgs) {
-  const { session } =
-    await authenticate.admin(
-      request,
-    );
+  const {
+    billing,
+    session,
+  } = await authenticate.admin(
+    request,
+  );
 
   const shop =
     await getOrCreateShopByDomain(
       session.shop,
     );
+
+  const billingStatus =
+    await getBillingStatus(
+      billing,
+      shop.id,
+    );
+
+  /*
+   * Do not query or return validation-log data
+   * for merchants on the Free plan.
+   */
+  if (!billingStatus.isPro) {
+    return data({
+      isPro: false as const,
+      shopDomain: session.shop,
+    });
+  }
 
   const url = new URL(
     request.url,
@@ -320,6 +348,8 @@ export async function loader({
   ]);
 
   return data({
+    isPro: true as const,
+
     logs:
       logsResult.logs,
 
@@ -339,15 +369,38 @@ export async function loader({
 export async function action({
   request,
 }: ActionFunctionArgs) {
-  const { session } =
-    await authenticate.admin(
-      request,
-    );
+  const {
+    billing,
+    session,
+  } = await authenticate.admin(
+    request,
+  );
 
   const shop =
     await getOrCreateShopByDomain(
       session.shop,
     );
+
+  const billingStatus =
+    await getBillingStatus(
+      billing,
+      shop.id,
+    );
+
+  /*
+   * Block direct POST requests from Free-plan merchants.
+   */
+  if (!billingStatus.isPro) {
+    return data<ActionData>(
+      {
+        error:
+          "Validation Logs is available on the Pro plan.",
+      },
+      {
+        status: 403,
+      },
+    );
+  }
 
   const formData =
     await request.formData();
@@ -463,15 +516,13 @@ export async function action({
 }
 
 export default function ValidationLogsPage() {
-  const {
-    logs,
-    pagination,
-    filters,
-    summary,
-    shopDomain,
-  } =
+  const loaderData =
     useLoaderData<typeof loader>();
 
+  /*
+   * Every hook must run before any conditional return.
+   * This keeps the hook order identical for Free and Pro plans.
+   */
   const actionData =
     useActionData<
       typeof action
@@ -482,11 +533,45 @@ export default function ValidationLogsPage() {
   const navigation =
     useNavigation();
 
-    const navigate = useNavigate();
+  const navigate =
+    useNavigate();
 
   const [
     searchParams,
   ] = useSearchParams();
+
+  const {
+    pricingUrl,
+  } =
+    useOutletContext<AppBillingContext>();
+
+  /*
+   * Free-plan loader data does not contain filters.
+   * These safe defaults allow all state hooks to run before
+   * rendering the locked Pro screen.
+   */
+  const filters: ValidationLogFilters =
+    loaderData.isPro
+      ? loaderData.filters
+      : {
+          search: "",
+          result: "all",
+
+          availability:
+            "all" as AvailabilityFilter,
+
+          cod:
+            "all" as BooleanAvailabilityFilter,
+
+          prepaid:
+            "all" as BooleanAvailabilityFilter,
+
+          startDate: "",
+          endDate: "",
+
+          sort:
+            "newest" as ValidationLogSort,
+        };
 
   const [
     search,
@@ -507,7 +592,7 @@ export default function ValidationLogsPage() {
     setAvailabilityFilter,
   ] =
     useState<AvailabilityFilter>(
-      filters.availability,
+      filters.availability ?? "all",
     );
 
   const [
@@ -515,7 +600,7 @@ export default function ValidationLogsPage() {
     setCodFilter,
   ] =
     useState<BooleanAvailabilityFilter>(
-      filters.cod,
+      filters.cod ?? "all",
     );
 
   const [
@@ -523,7 +608,7 @@ export default function ValidationLogsPage() {
     setPrepaidFilter,
   ] =
     useState<BooleanAvailabilityFilter>(
-      filters.prepaid,
+      filters.prepaid ?? "all",
     );
 
   const [
@@ -545,7 +630,7 @@ export default function ValidationLogsPage() {
     setSort,
   ] =
     useState<ValidationLogSort>(
-      filters.sort,
+      filters.sort ?? "newest",
     );
 
   const [
@@ -557,6 +642,161 @@ export default function ValidationLogsPage() {
     clearConfirmation,
     setClearConfirmation,
   ] = useState("");
+
+  const openPricingPage =
+    () => {
+      window.open(
+        pricingUrl,
+        "_top",
+      );
+    };
+
+  /*
+   * The locked screen is rendered only after every hook
+   * has been called.
+   */
+  if (!loaderData.isPro) {
+    return (
+      <AppProvider
+        i18n={enTranslations}
+      >
+        <Page
+          title="Validation Logs"
+          subtitle="Review customer pincode validation activity."
+          backAction={{
+            content:
+              "Dashboard",
+
+            onAction: () =>
+              navigate("/app"),
+          }}
+        >
+          <div
+            style={{
+              display: "grid",
+              placeItems:
+                "center",
+              minHeight:
+                "520px",
+              padding: "24px",
+            }}
+          >
+            <section
+              style={{
+                width: "100%",
+                maxWidth:
+                  "620px",
+                padding: "40px",
+
+                border:
+                  "1px solid #e3e5e7",
+
+                borderRadius:
+                  "18px",
+
+                background:
+                  "#ffffff",
+
+                boxShadow:
+                  "0 8px 28px rgba(20, 25, 30, 0.08)",
+
+                textAlign:
+                  "center",
+              }}
+            >
+              <div
+                style={{
+                  display:
+                    "grid",
+
+                  placeItems:
+                    "center",
+
+                  width: "58px",
+                  height:
+                    "58px",
+
+                  margin:
+                    "0 auto 18px",
+
+                  borderRadius:
+                    "16px",
+
+                  background:
+                    "#fff3cd",
+
+                  fontSize:
+                    "27px",
+                }}
+              >
+                👑
+              </div>
+
+              <h2
+                style={{
+                  margin:
+                    "0 0 10px",
+
+                  color:
+                    "#202223",
+
+                  fontSize:
+                    "24px",
+                }}
+              >
+                Validation Logs is a Pro feature
+              </h2>
+
+              <p
+                style={{
+                  maxWidth:
+                    "480px",
+
+                  margin:
+                    "0 auto 24px",
+
+                  color:
+                    "#6d7175",
+
+                  fontSize:
+                    "14px",
+
+                  lineHeight:
+                    1.7,
+                }}
+              >
+                Upgrade to Pro to
+                search, filter,
+                export and manage
+                customer pincode
+                validation history.
+              </p>
+
+              <Button
+                variant="primary"
+                onClick={
+                  openPricingPage
+                }
+              >
+                Upgrade to Pro
+              </Button>
+            </section>
+          </div>
+        </Page>
+      </AppProvider>
+    );
+  }
+
+  /*
+   * TypeScript now knows this is the Pro loader response,
+   * so these properties are available safely.
+   */
+  const {
+    logs,
+    pagination,
+    summary,
+    shopDomain,
+  } = loaderData;
 
   const isSubmitting =
     navigation.state ===
