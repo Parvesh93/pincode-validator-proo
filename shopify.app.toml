@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "28e74bd37976895dd299f3df087bfe1d"
-name = "pincode-validator-proo"
+name = "PinSure: Pincode Validator"
 application_url = "https://apps.ppdesigntech.com"
 embedded = true
 
