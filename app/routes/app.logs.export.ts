@@ -2,6 +2,7 @@ import type { LoaderFunctionArgs } from "react-router";
 
 import { authenticate } from "../shopify.server";
 import { getOrCreateShopByDomain } from "../lib/pincode.server";
+import { getBillingStatus } from "../lib/billing.server";
 
 import {
   getValidationLogsForExport,
@@ -115,7 +116,7 @@ function getExportFilename() {
 export async function loader({
   request,
 }: LoaderFunctionArgs) {
-  const { session } =
+  const { billing, session } =
     await authenticate.admin(
       request,
     );
@@ -124,6 +125,24 @@ export async function loader({
     await getOrCreateShopByDomain(
       session.shop,
     );
+
+  const billingStatus =
+    await getBillingStatus(
+      billing,
+      shop.id,
+    );
+
+  if (!billingStatus.isPro) {
+    return new Response(
+      "Validation Logs export is available on the Pro plan.",
+      {
+        status: 403,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  }
 
   const url = new URL(
     request.url,
