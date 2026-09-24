@@ -4,12 +4,12 @@ export const meta: MetaFunction = () => {
   return [
     {
       title:
-        "Support & Documentation | Pincode Validator Pro",
+        "Support & Documentation | PinSure: Pincode Validator",
     },
     {
       name: "description",
       content:
-        "Installation, setup, CSV import, settings and troubleshooting documentation for Pincode Validator Pro.",
+        "Installation, setup, CSV import, settings and troubleshooting documentation for PinSure: Pincode Validator.",
     },
     {
       name: "robots",
@@ -55,7 +55,7 @@ export default function SupportPage() {
         <section className="support-hero">
           <div className="support-hero-content">
             <span className="support-eyebrow">
-              Pincode Validator Pro
+              PinSure: Pincode Validator
             </span>
 
             <h1>
@@ -163,7 +163,7 @@ export default function SupportPage() {
               <h2>Getting started</h2>
 
               <p>
-                After installing Pincode Validator Pro,
+                After installing PinSure: Pincode Validator,
                 complete the following setup steps
                 before using it on your live
                 storefront.
@@ -200,7 +200,7 @@ export default function SupportPage() {
 
                   <span>
                     Open the Shopify theme editor and
-                    add the Pincode Validator Pro app
+                    add the PinSure: Pincode Validator app
                     block to your product template.
                   </span>
                 </li>
@@ -327,7 +327,7 @@ export default function SupportPage() {
 
                 <li>
                   <strong>
-                    Enable Pincode Validator Pro
+                    Enable PinSure: Pincode Validator
                   </strong>
 
                   <span>
