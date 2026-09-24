@@ -3,6 +3,7 @@ import type { LoaderFunctionArgs } from "react-router";
 import prisma from "../db.server";
 import { getOrCreateShopByDomain } from "../lib/pincode.server";
 import { authenticate } from "../shopify.server";
+import { getBillingStatus } from "../lib/billing.server";
 
 function protectSpreadsheetValue(value: string) {
   if (/^[=+\-@]/.test(value)) {
@@ -46,9 +47,26 @@ function formatExportDate() {
 export async function loader({
   request,
 }: LoaderFunctionArgs) {
-  const { session } = await authenticate.admin(request);
+  const { billing, session } = await authenticate.admin(request);
 
   const shop = await getOrCreateShopByDomain(session.shop);
+
+  const billingStatus = await getBillingStatus(
+    billing,
+    shop.id,
+  );
+
+  if (!billingStatus.isPro) {
+    return new Response(
+      "Pincode export is available on the Pro plan.",
+      {
+        status: 403,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  }
 
   const pincodes = await prisma.pincode.findMany({
     where: {
