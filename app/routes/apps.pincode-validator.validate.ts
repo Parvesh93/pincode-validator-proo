@@ -699,57 +699,6 @@ const isPro =
       );
     }
 
-    if (!record.prepaidAvailable) {
-      await createValidationLog({
-        shopId: shopRecord.id,
-        pincode,
-        result:
-          "prepaid_unavailable",
-        isAvailable: false,
-
-        city:
-          record.city ?? null,
-
-        state:
-          record.state ?? null,
-
-        country:
-          record.country ??
-          settings.defaultCountry,
-
-        productId,
-        productHandle,
-        productTitle,
-
-        codAvailable:
-          record.codAvailable,
-
-        prepaidAvailable: false,
-
-        estDeliveryDays:
-          record.estDeliveryDays ?? null,
-
-        source,
-        userAgent,
-      });
-
-      return Response.json(
-        unavailableResponse({
-          pincode,
-          message:
-            settings.failureMessage,
-          settings,
-          city:
-            record.city ?? null,
-          state:
-            record.state ?? null,
-          country:
-            record.country ??
-            settings.defaultCountry,
-        }),
-      );
-    }
-
     await createValidationLog({
       shopId: shopRecord.id,
       pincode,
