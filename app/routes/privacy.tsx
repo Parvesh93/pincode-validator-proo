@@ -4,12 +4,12 @@ export const meta: MetaFunction = () => {
   return [
     {
       title:
-        "Privacy Policy | Pincode Validator Pro",
+        "Privacy Policy | PinSure: Pincode Validator",
     },
     {
       name: "description",
       content:
-        "Privacy Policy for the Pincode Validator Pro Shopify application by PP DESIGN AND TECH.",
+        "Privacy Policy for the PinSure: Pincode Validator Shopify application by PP DESIGN AND TECH.",
     },
     {
       name: "robots",
@@ -31,7 +31,7 @@ export default function PrivacyPolicyPage() {
           </a>
 
           <span className="legal-app-name">
-            Pincode Validator Pro
+            PinSure: Pincode Validator
           </span>
         </header>
 
@@ -54,7 +54,7 @@ export default function PrivacyPolicyPage() {
               DESIGN AND TECH (“we”, “our” or “us”)
               collects, uses, stores and protects
               information when Shopify merchants use
-              the Pincode Validator Pro application
+              the PinSure: Pincode Validator application
               (“the App”).
             </p>
 
