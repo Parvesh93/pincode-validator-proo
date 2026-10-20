@@ -4,12 +4,12 @@ export const meta: MetaFunction = () => {
   return [
     {
       title:
-        "Terms of Service | PinSure: Pincode Validator",
+        "Terms of Service | Auxeva Pincode Validator Pro",
     },
     {
       name: "description",
       content:
-        "Terms of Service for the PinSure: Pincode Validator Shopify application by PP DESIGN AND TECH.",
+        "Terms of Service for the Auxeva Pincode Validator Pro Shopify application by PP DESIGN AND TECH.",
     },
     {
       name: "robots",
@@ -31,7 +31,7 @@ export default function TermsOfServicePage() {
           </a>
 
           <span className="legal-app-name">
-            PinSure: Pincode Validator
+            Auxeva Pincode Validator Pro
           </span>
         </header>
 
@@ -68,7 +68,7 @@ export default function TermsOfServicePage() {
               <h2>1. About the App</h2>
 
               <p>
-                PinSure: Pincode Validator is a Shopify
+                Auxeva Pincode Validator Pro is a Shopify
                 application that allows merchants to
                 configure delivery serviceability by
                 postal code and display delivery,
