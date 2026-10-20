@@ -4,12 +4,12 @@ export const meta: MetaFunction = () => {
   return [
     {
       title:
-        "Support & Documentation | PinSure: Pincode Validator",
+        "Support & Documentation | Auxeva Pincode Validator Pro",
     },
     {
       name: "description",
       content:
-        "Installation, setup, CSV import, settings and troubleshooting documentation for PinSure: Pincode Validator.",
+        "Installation, setup, CSV import, settings and troubleshooting documentation for Auxeva Pincode Validator Pro.",
     },
     {
       name: "robots",
@@ -55,7 +55,7 @@ export default function SupportPage() {
         <section className="support-hero">
           <div className="support-hero-content">
             <span className="support-eyebrow">
-              PinSure: Pincode Validator
+              Auxeva Pincode Validator Pro
             </span>
 
             <h1>
@@ -163,7 +163,7 @@ export default function SupportPage() {
               <h2>Getting started</h2>
 
               <p>
-                After installing PinSure: Pincode Validator,
+                After installing Auxeva Pincode Validator Pro,
                 complete the following setup steps
                 before using it on your live
                 storefront.
@@ -200,7 +200,7 @@ export default function SupportPage() {
 
                   <span>
                     Open the Shopify theme editor and
-                    add the PinSure: Pincode Validator app
+                    add the Auxeva Pincode Validator Pro app
                     block to your product template.
                   </span>
                 </li>
@@ -327,7 +327,7 @@ export default function SupportPage() {
 
                 <li>
                   <strong>
-                    Enable PinSure: Pincode Validator
+                    Enable Auxeva Pincode Validator Pro
                   </strong>
 
                   <span>
