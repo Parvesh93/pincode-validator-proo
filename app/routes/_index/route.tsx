@@ -1,57 +1,34 @@
 import type { LoaderFunctionArgs } from "react-router";
-import { redirect, Form, useLoaderData } from "react-router";
-
-import { login } from "../../shopify.server";
-
+import { redirect } from "react-router";
 import styles from "./styles.module.css";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
-
-  if (url.searchParams.get("shop")) {
+  if (url.searchParams.get("shop") || url.searchParams.get("host")) {
     throw redirect(`/app?${url.searchParams.toString()}`);
   }
-
-  return { showForm: Boolean(login) };
+  return null;
 };
 
-export default function App() {
-  const { showForm } = useLoaderData<typeof loader>();
-
+export default function Index() {
   return (
-    <div className={styles.index}>
+    <main className={styles.index}>
       <div className={styles.content}>
-        <h1 className={styles.heading}>A short heading about [your app]</h1>
+        <h1 className={styles.heading}>Auxeva Pincode Validator Pro</h1>
         <p className={styles.text}>
-          A tagline about [your app] that describes your value proposition.
+          Check delivery availability by Indian pincode on your Shopify storefront.
+          Manage serviceable pincodes, delivery estimates, COD and prepaid availability.
         </p>
-        {showForm && (
-          <Form className={styles.form} method="post" action="/auth/login">
-            <label className={styles.label}>
-              <span>Shop domain</span>
-              <input className={styles.input} type="text" name="shop" />
-              <span>e.g: my-shop-domain.myshopify.com</span>
-            </label>
-            <button className={styles.button} type="submit">
-              Log in
-            </button>
-          </Form>
-        )}
-        <ul className={styles.list}>
-          <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
-          </li>
-          <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
-          </li>
-          <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
-          </li>
-        </ul>
+        <p className={styles.text}>
+          To install or open the app, use its listing in the Shopify App Store
+          or launch it from Apps in your Shopify admin.
+        </p>
+        <p className={styles.text}>
+          Support: <a href="/support">Help centre</a> ·{" "}
+          <a href="/privacy">Privacy policy</a> ·{" "}
+          <a href="/terms">Terms of service</a>
+        </p>
       </div>
-    </div>
+    </main>
   );
 }
