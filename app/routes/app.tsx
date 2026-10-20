@@ -268,6 +268,10 @@ export default function App() {
       : "👑 Validation Logs"}
   </Link>
 
+  <Link to="/app/merchant-data">
+    Merchant Data Access
+  </Link>
+
   <Link to="/app/settings">
     Settings
   </Link>
