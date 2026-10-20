@@ -1,81 +1,23 @@
-
-import type {
-  ActionFunctionArgs,
-  LoaderFunctionArgs,
-} from "react-router";
-import { Form, useActionData, useLoaderData } from "react-router";
-
-import { login } from "../../shopify.server";
-// If the CSS module is missing, fall back to an empty styles object
-// to avoid import resolution errors during builds or linting.
-const styles: { [key: string]: string } = {
-  index: "",
-  content: "",
-  heading: "",
-  label: "",
-  input: "",
-  error: "",
-  button: "",
-};
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
+import { redirect } from "react-router";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const errors = login
-    ? await login(request)
-    : {};
-
-  return {
-    errors,
-  };
+  const url = new URL(request.url);
+  // Shopify initiates installs and launches from its own admin surfaces.
+  // Never prompt merchants to enter an arbitrary shop domain.
+  if (url.searchParams.has("shop") || url.searchParams.has("host")) {
+    throw redirect(`/app?${url.searchParams.toString()}`);
+  }
+  throw redirect("/");
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const errors = login
-    ? await login(request)
-    : {};
-
-  return {
-    errors,
-  };
+export const action = async (_args: ActionFunctionArgs) => {
+  return new Response("Open this app from the Shopify App Store or Shopify admin.", {
+    status: 405,
+    headers: { Allow: "GET" },
+  });
 };
 
-export default function Auth() {
-  const loaderData = useLoaderData<typeof loader>();
-  const actionData = useActionData<typeof action>();
-  const errors = actionData?.errors || loaderData.errors;
-
-  return (
-    <div className={styles.index}>
-      <div className={styles.content}>
-        <h1 className={styles.heading}>Log in</h1>
-
-        <Form method="post">
-          <label className={styles.label}>
-            <span>Shop domain</span>
-
-            <input
-              className={styles.input}
-              type="text"
-              name="shop"
-              placeholder="example.myshopify.com"
-              autoComplete="on"
-              required
-            />
-
-            {errors?.shop && (
-              <span className={styles.error}>
-                {errors.shop}
-              </span>
-            )}
-          </label>
-
-          <button
-            className={styles.button}
-            type="submit"
-          >
-            Log in
-          </button>
-        </Form>
-      </div>
-    </div>
-  );
+export default function AuthLogin() {
+  return null;
 }
